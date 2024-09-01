@@ -20,8 +20,15 @@ type UserProvider interface {
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
 }
 
+// struct with params to get app by id or by name
+type AppParams struct {
+	AppID int32
+	AppName string
+}
+
 type AppProvider interface {
-	App(ctx context.Context, appID int32) (models.App, error)
+	App(ctx context.Context, params AppParams) (models.App, error)
+	CreateApp(ctx context.Context, app *models.App) (int64, error)
 }
 
 type Auth struct {
@@ -78,7 +85,7 @@ func (a *Auth) Login(
 			log.Warn("Wrong password", "email", email)
 			return emptyTokens, ErrInvalidCredentials
 	}
-	app, err := a.appProvider.App(ctx, appId)
+	app, err := a.appProvider.App(ctx, AppParams{AppID: appId})
 	if err != nil {
 		if errors.Is(err, storage.ErrAppNotFound) {
 			log.Warn("App not found", "app_id", appId)
@@ -141,4 +148,28 @@ func (a *Auth) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 	}
 	log.Info("Checked whether user is admin", "is_admin", isAdmin)
 	return isAdmin, nil
+}
+
+func (a *Auth) GetOrCreateApp(
+	ctx context.Context,
+	app *models.App,
+) (int64, bool, error) {
+	const op = "auth.GetOrCreateApp"
+	log := a.log.With("operation", op)
+	id, err := a.appProvider.CreateApp(ctx, app)
+	if err != nil {
+		if errors.Is(err, storage.ErrAppAlreadyExists) {
+			log.Warn("App already exists", "name", app.Name)
+			app, err := a.appProvider.App(ctx, AppParams{AppName: app.Name})
+			if err != nil {
+				log.Error("Error getting app", "msg", err)
+				return 0, false, err
+			}
+			return int64(app.ID), false, nil
+		}
+		log.Error("Error creating app", "msg", err)
+		return 0, false, err
+	}
+	log.Info("App saved", "id", id)
+	return id, true, nil
 }

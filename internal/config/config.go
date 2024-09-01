@@ -27,6 +27,7 @@ type DB struct {
 	Name     string `yaml:"name" env:"DB_NAME" env-required:"true"`
 	User     string `yaml:"user" env:"POSTGRES_USER" env-required:"true"`
 	Password string `yaml:"password" env:"POSTGRES_PASSWORD" env-required:"true"`
+	LoadTimeout time.Duration `yaml:"load_timeout" env-default:"10s"`
 }
 
 func Load(configPath string) *Config {

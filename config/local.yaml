@@ -7,6 +7,7 @@ db:
   host: localhost
   port: 5432
   name: sso
+  load_timeout: 5s
 server:
   port: 8080
   host: localhost

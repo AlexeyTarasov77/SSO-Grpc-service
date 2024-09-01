@@ -10,6 +10,7 @@ import (
 type App struct {
 	ID     int `db:"id"`
 	Name   string `db:"name"`
+	Description string `db:"description"`
 	Secret string `db:"secret"`
 }
 

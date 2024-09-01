@@ -1,5 +1,7 @@
-github.com/AlexeySHA256/protos v0.0.2 h1:MuQIeS3GTWZxVxJpfnOrtzXmrLaBTzWjiCPNUiWlGyo=
-github.com/AlexeySHA256/protos v0.0.2/go.mod h1:7187SUlaNKuvAz4GMJJtOURDe3Z/QwdUs/VDYVPb44k=
+github.com/AlexeySHA256/protos v0.0.3 h1:45kBIs7UQ6vYvVj2yIHPXHflmZ0pC4Ylum12dKyHgd4=
+github.com/AlexeySHA256/protos v0.0.3/go.mod h1:7187SUlaNKuvAz4GMJJtOURDe3Z/QwdUs/VDYVPb44k=
+github.com/AlexeySHA256/protos v0.0.4 h1:n4F9QReKBN5tuFrkdYO+jEfByHjRyYdIqPMFI/pKFWM=
+github.com/AlexeySHA256/protos v0.0.4/go.mod h1:7187SUlaNKuvAz4GMJJtOURDe3Z/QwdUs/VDYVPb44k=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 h1:L/gRVlceqvL25UVaW/CKtUDjefjrs0SPonmDGUVOYP0=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/BurntSushi/toml v1.2.1/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=

@@ -46,7 +46,9 @@ func (st *Suite) NewTestStorage(t *testing.T) *postgres.Storage {
 		"postgresql://%s:%s@%s:%s/%s?sslmode=disable",
 		st.Cfg.DB.User, st.Cfg.DB.Password, st.Cfg.DB.Host, st.Cfg.DB.Port, st.Cfg.DB.Name,
 	)
-	storage, err := postgres.New(storagePath)
+	ctx, cancel := context.WithTimeout(context.Background(), st.Cfg.DB.LoadTimeout)
+	defer cancel()
+	storage, err := postgres.New(ctx, storagePath)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		storage.DB.Close()

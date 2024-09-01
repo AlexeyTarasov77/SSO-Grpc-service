@@ -3,7 +3,7 @@ module sso.service
 go 1.22.5
 
 require (
-	github.com/AlexeySHA256/protos v0.0.2
+	github.com/AlexeySHA256/protos v0.0.4
 	github.com/brianvoe/gofakeit/v7 v7.0.4
 	github.com/fatih/color v1.17.0
 	github.com/go-playground/validator/v10 v10.22.0

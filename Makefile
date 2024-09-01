@@ -1,5 +1,5 @@
 startdb:
-	docker run --rm --name sso-postgres -v sso_postgres_data:/var/lib/postgresql/data -d -p 5434:5432 \
+	docker run --rm --name sso-postgres -v sso_postgres_data:/var/lib/postgresql/data -d -p 5432:5432 \
 	--env-file .env postgres:15-alpine
 
 stopdb:

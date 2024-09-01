@@ -19,15 +19,17 @@ type Auth interface {
 	Login(ctx context.Context, username string, password string, appId int32) (models.Tokens, error)
 	Register(ctx context.Context, username string, password string, email string) (int64, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
+	GetOrCreateApp(ctx context.Context,app *models.App) (int64, bool, error)
 }
 
 type serverAPI struct {
 	ssov1.UnimplementedAuthServer
 	auth Auth
+	log  *slog.Logger
 }
 
-func Register(gRPC *grpc.Server, auth Auth) {
-	ssov1.RegisterAuthServer(gRPC, &serverAPI{auth: auth})
+func Register(gRPC *grpc.Server, auth Auth, log *slog.Logger) {
+	ssov1.RegisterAuthServer(gRPC, &serverAPI{auth: auth, log: log})
 }
 func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.LoginResponse, error) {
 	validationRules := map[string]string{
@@ -35,9 +37,8 @@ func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.
 		"Password": "required,min=8",
 		"AppId":   "required,gt=0",
 	}
-	errs := validator.Validate(req, validationRules)
-	if errs != validator.EmptyErrors {
-		slog.Error("Validation errors at login", "errors", errs)
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
 
@@ -81,9 +82,8 @@ func (s *serverAPI) Register(
 		"Password": "required,min=8",
 		"Email":    "required,email",
 	}
-	errs := validator.Validate(req, validationRules)
-	if errs != validator.EmptyErrors {
-		slog.Error("Validation errors at login", "errors", errs)
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
 	userID, err := s.auth.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetEmail())
@@ -100,5 +100,31 @@ func (s *serverAPI) Register(
 	}
 	return &ssov1.RegisterResponse{
 		UserId: userID,
+	}, nil
+}
+
+func (s *serverAPI) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAppRequest) (*ssov1.GetOrCreateAppResponse, error) {
+	validationRules := map[string]string{
+		"Name": "required,max=70",
+		"Description": "required,max=300",
+		"Secret": "required,min=12,max=64",
+	}
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		s.log.Debug("Validation errors at login", "errors", errs)
+		return nil, status.Error(codes.InvalidArgument, errs)
+	}
+
+	appID, created, err := s.auth.GetOrCreateApp(ctx, &models.App{
+		Name:        req.GetName(),
+		Description: req.GetDescription(),
+		Secret:      req.GetSecret(),
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get or create app")
+	}
+
+	return &ssov1.GetOrCreateAppResponse{
+		Id: appID,
+		Created: created,
 	}, nil
 }
