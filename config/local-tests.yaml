@@ -1,0 +1,14 @@
+mode: "local"
+access_token_ttl: 5m
+refresh_token_ttl: 24h
+db:
+  user: sso_testuser
+  password: test
+  host: localhost
+  port: 5432
+  name: sso_test
+server:
+  port: 8000
+  host: localhost
+  timeout: 10h
+  

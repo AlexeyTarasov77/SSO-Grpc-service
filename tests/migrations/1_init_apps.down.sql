@@ -1,0 +1,1 @@
+DELETE FROM apps WHERE app_id = 1;
