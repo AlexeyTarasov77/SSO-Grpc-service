@@ -19,7 +19,8 @@ type Auth interface {
 	Login(ctx context.Context, username string, password string, appId int32) (models.Tokens, error)
 	Register(ctx context.Context, username string, password string, email string) (int64, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
-	GetOrCreateApp(ctx context.Context,app *models.App) (int64, bool, error)
+	GetOrCreateApp(ctx context.Context, app *models.App) (int64, bool, error)
+	GetAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error)
 }
 
 type serverAPI struct {
@@ -64,9 +65,9 @@ func (s *serverAPI) IsAdmin(
 	isAdmin, err := s.auth.IsAdmin(ctx, req.GetUserId())
 	if err != nil {
 		if errors.Is(err, auth.ErrUserNotFound) {
-			return nil, status.Error(codes.NotFound, "user not found")
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		return nil, status.Error(codes.Internal, "failed to check if user is admin")
+		return nil, status.Error(codes.Internal, "failed to check whether user is admin")
 	}
 	return &ssov1.IsAdminResponse{
 		IsAdmin: isAdmin,
@@ -100,6 +101,7 @@ func (s *serverAPI) Register(
 	}
 	return &ssov1.RegisterResponse{
 		UserId: userID,
+		Msg:    "User succesfully created. To login make sure you've activated your account.",
 	}, nil
 }
 
@@ -127,4 +129,26 @@ func (s *serverAPI) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAp
 		Id: appID,
 		Created: created,
 	}, nil
+}
+
+func (s *serverAPI) GetAccessToken(ctx context.Context, req *ssov1.GetAccessTokenRequest) (*ssov1.GetAccessTokenResponse, error) {
+	validationRules := map[string]string{
+		"refreshToken": "required,min=10,max=64",
+		"appId": "required,gt=0",
+	}
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		s.log.Debug("Validation errors at login", "errors", errs)
+		return nil, status.Error(codes.InvalidArgument, errs)
+	}
+	token, err := s.auth.GetAccessToken(ctx, req.GetRefreshToken(), req.GetAppId())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to refresh token")
+	}
+	return &ssov1.GetAccessTokenResponse{
+		AccessToken:  token,
+	}, nil
+}
+
+func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
+	panic("implement me")
 }

@@ -16,5 +16,10 @@ migrate-test:
 	docker run -v ./tests/migrations:/tests/migrations migrate/migrate \
     -path=/migrations -database "postgres://sso_testuser:test@localhost:5432/sso?sslmode=disable" $(direction)
 
-run:
+runserver:
 	go run ./cmd/sso -config=./config/local.yaml
+
+run:
+	make startdb
+	sleep 1 
+	make runserver
