@@ -34,7 +34,7 @@ func (s *Storage) SaveUser(ctx context.Context, user *models.User) (int64, error
 		ctx,
 		"INSERT INTO users (username, password, email) VALUES ($1, $2, $3) RETURNING id",
 		user.Username,
-		user.Password,
+		user.Password.Hash,
 		user.Email,
 	).Scan(&userID)
 	if err != nil {
@@ -47,15 +47,19 @@ func (s *Storage) SaveUser(ctx context.Context, user *models.User) (int64, error
 	return userID, nil
 }
 
-func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
-	// var user models.User
-	row, _ := s.DB.Query(
+func (s *Storage) User(ctx context.Context, params auth.GetUserParams) (models.User, error) {
+	if params.IsActive == nil {
+		params.IsActive = new(bool)
+		*params.IsActive = true
+	}
+	args := []any{params.Email, params.ID, *params.IsActive}
+	var user models.User
+	err := s.DB.QueryRow(
 		ctx,
 		`SELECT id, username, email, password, role, is_active, created_at, updated_at FROM users
-		WHERE email = $1 AND is_active = true`,
-		email,
-	)
-	user, err := pgx.CollectOneRow(row, pgx.RowToStructByName[models.User])
+		WHERE (email = $1 OR $1 = '') AND (id = $2 OR $2 = 0) AND is_active = $3`,
+		args...
+	).Scan(&user.ID, &user.Username, &user.Email, &user.Password.Hash, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.User{}, storage.ErrUserNotFound
@@ -70,7 +74,7 @@ func (s *Storage) App(ctx context.Context, params auth.AppParams) (models.App, e
 	args := []any{params.AppID, params.AppName}
 	row, _ := s.DB.Query(
 		ctx,
-		`SELECT * FROM apps WHERE (id = $1 OR $1 = 0) AND (name = $2 OR $2 = '')`,
+		`SELECT id, name, coalesce(description, '') AS description, secret FROM apps WHERE (id = $1 OR $1 = 0) AND (name = $2 OR $2 = '')`,
 		args...,
 	)
 	app, err := pgx.CollectOneRow(row, pgx.RowToStructByName[models.App])
