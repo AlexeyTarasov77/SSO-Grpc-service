@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"sso.service/internal/domain/models"
+	"sso.service/internal/services/auth"
 	"sso.service/tests/suite"
 )
 
@@ -95,7 +96,7 @@ func TestRegister(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotEmpty(t, respReg.GetUserId())
 			storage := st.NewTestStorage(t)
-			user, err := storage.User(ctx, validEmail)
+			user, err := storage.User(ctx, auth.GetUserParams{Email: validEmail})
 			require.NoError(t, err)
 			assert.Equal(t, respReg.GetUserId(), int64(user.ID))
 			assert.Equal(t, validEmail, user.Email)

@@ -23,7 +23,7 @@ func New(log *slog.Logger, cfg *config.Config, storagePath string) *App {
 		panic(err)
 	}
 	log.Info("Database connected", "path", storagePath)
-	authService := auth.New(log, storage, storage, storage, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
+	authService := auth.New(log, storage, storage, storage, cfg)
 	gRPCApp := grpcapp.New(log, cfg.Server.Port, authService)
 	return &App{gRPCApp}
 }

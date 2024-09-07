@@ -34,8 +34,8 @@ type User struct {
 }
 
 type password struct {
-	plaintext string
-	hash      []byte
+	Plaintext string
+	Hash      []byte
 }
 
 func (p *password) Set(plain string) error {
@@ -43,13 +43,13 @@ func (p *password) Set(plain string) error {
 	if err != nil {
 		return err
 	}
-	p.plaintext = plain
-	p.hash = hash
+	p.Plaintext = plain
+	p.Hash = hash
 	return nil
 }
 
 func (p *password) Matches(plain string) (bool, error) {
-	err := bcrypt.CompareHashAndPassword(p.hash, []byte(plain))
+	err := bcrypt.CompareHashAndPassword(p.Hash, []byte(plain))
 	if err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return false, nil

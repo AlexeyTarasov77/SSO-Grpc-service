@@ -11,22 +11,23 @@ type Config struct {
 	Mode            string        `yaml:"mode"`
 	AccessTokenTTL  time.Duration `yaml:"access_token_ttl" env-required:"true"`
 	RefreshTokenTTL time.Duration `yaml:"refresh_token_ttl" env-required:"true"`
-	Server          `yaml:"server"`
-	DB              `yaml:"db"`
+	TokenSigningAlg string        `yaml:"token_signing_alg" env-required:"true"`
+	Server          Server        `yaml:"server" env-required:"true"`
+	DB              DB            `yaml:"db" env-required:"true"`
 }
 
 type Server struct {
-	Port string `yaml:"port"`
-	Host string `yaml:"host"`
+	Port    string        `yaml:"port"`
+	Host    string        `yaml:"host"`
 	Timeout time.Duration `yaml:"timeout" env-required:"true"`
 }
 
 type DB struct {
-	Port     string `yaml:"port" env:"DB_PORT" env-default:"5432"`
-	Host     string `yaml:"host" env:"DB_HOST" env-default:"localhost"`
-	Name     string `yaml:"name" env:"DB_NAME" env-required:"true"`
-	User     string `yaml:"user" env:"POSTGRES_USER" env-required:"true"`
-	Password string `yaml:"password" env:"POSTGRES_PASSWORD" env-required:"true"`
+	Port        string        `yaml:"port" env:"DB_PORT" env-default:"5432"`
+	Host        string        `yaml:"host" env:"DB_HOST" env-default:"localhost"`
+	Name        string        `yaml:"name" env:"DB_NAME" env-required:"true"`
+	User        string        `yaml:"user" env:"POSTGRES_USER" env-required:"true"`
+	Password    string        `yaml:"password" env:"POSTGRES_PASSWORD" env-required:"true"`
 	LoadTimeout time.Duration `yaml:"load_timeout" env-default:"10s"`
 }
 

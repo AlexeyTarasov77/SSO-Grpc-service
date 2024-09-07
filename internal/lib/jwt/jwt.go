@@ -1,32 +1,39 @@
 package jwt
 
 import (
-	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"sso.service/internal/domain/models"
 )
 
-func NewAccessToken(user models.User, app models.App, expires time.Duration) (string, error) {
-	if expires <= 0 {
-		return "", errors.New("expires must be > 0")
-	}
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := token.Claims.(jwt.MapClaims)
-	claims["uid"] = user.ID
-	claims["email"] = user.Email
-	claims["exp"] = time.Now().Add(expires).Unix()
-	claims["app_id"] = app.ID
-	return token.SignedString([]byte(app.Secret))
+type TokenProvider struct {
+	SigningKey string
+	SigningAlg string
 }
 
-func NewRefreshToken(app models.App, expires time.Duration) (string, error) {
+func NewTokenProvider(signingKey string, signingAlg string) *TokenProvider {
+	return &TokenProvider{signingKey, signingAlg}
+}
+
+func (tp *TokenProvider) NewToken(expires time.Duration, _claims ...map[string]any) (string, error) {
 	if expires <= 0 {
-		return "", errors.New("expires must be > 0")
+		panic("expires must be greater than 0")
 	}
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := token.Claims.(jwt.MapClaims)
+	var claims jwt.MapClaims
+	if len(_claims) > 0 {
+		claims = jwt.MapClaims(_claims[0])
+	}
 	claims["exp"] = time.Now().Add(expires).Unix()
-	return token.SignedString([]byte(app.Secret))
+	token := jwt.NewWithClaims(jwt.GetSigningMethod(tp.SigningAlg), claims)
+	return token.SignedString([]byte(tp.SigningKey))
+}
+
+func (tp *TokenProvider) ParseClaimsFromToken(token string) (map[string]any, error) {
+	parsed, err := jwt.Parse(token, func(token *jwt.Token) (any, error) {
+		return []byte(tp.SigningKey), nil
+	}, jwt.WithValidMethods([]string{tp.SigningAlg}))
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any(parsed.Claims.(jwt.MapClaims)), nil
 }
