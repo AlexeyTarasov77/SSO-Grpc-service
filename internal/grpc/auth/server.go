@@ -6,7 +6,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/AlexeySHA256/protos/gen/go/sso"
+	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -16,10 +16,10 @@ import (
 )
 
 type Auth interface {
-	Login(ctx context.Context, username string, password string, appId int32) (models.Tokens, error)
-	Register(ctx context.Context, username string, password string, email string) (int64, error)
+	Login(ctx context.Context, username string, password string, appId int32) (*models.AuthTokens, error)
+	Register(ctx context.Context, username string, password string, email string) (*auth.UserIDAndToken, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
-	GetOrCreateApp(ctx context.Context, app *models.App) (int64, bool, error)
+	GetOrCreateApp(ctx context.Context, app *models.App) (*auth.AppIDAndIsCreated, error)
 	GetAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error)
 }
 
@@ -34,9 +34,9 @@ func Register(gRPC *grpc.Server, auth Auth, log *slog.Logger) {
 }
 func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.LoginResponse, error) {
 	validationRules := map[string]string{
-		"Email": "required,email",
+		"Email":    "required,email",
 		"Password": "required,min=8",
-		"AppId":   "required,gt=0",
+		"AppId":    "required,gt=0",
 	}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		s.log.Debug("Validation errors at login", "errors", errs)
@@ -87,7 +87,7 @@ func (s *serverAPI) Register(
 		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
-	userID, err := s.auth.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetEmail())
+	data, err := s.auth.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetEmail())
 	if err != nil {
 		if errors.Is(err, auth.ErrUserAlreadyExists) {
 			errorMsg, err := json.Marshal(map[string]string{"email": err.Error()})
@@ -100,23 +100,23 @@ func (s *serverAPI) Register(
 		return nil, status.Error(codes.Internal, "failed to register")
 	}
 	return &ssov1.RegisterResponse{
-		UserId: userID,
-		Msg:    "User succesfully created. To login make sure you've activated your account.",
+		UserId:          data.UserID,
+		ActivationToken: data.Token.Plaintext,
 	}, nil
 }
 
 func (s *serverAPI) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAppRequest) (*ssov1.GetOrCreateAppResponse, error) {
 	validationRules := map[string]string{
-		"Name": "required,max=70",
+		"Name":        "required,max=70",
 		"Description": "required,max=300",
-		"Secret": "required,min=12,max=64",
+		"Secret":      "required,min=12,max=64",
 	}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
 
-	appID, created, err := s.auth.GetOrCreateApp(ctx, &models.App{
+	data, err := s.auth.GetOrCreateApp(ctx, &models.App{
 		Name:        req.GetName(),
 		Description: req.GetDescription(),
 		Secret:      req.GetSecret(),
@@ -126,15 +126,15 @@ func (s *serverAPI) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAp
 	}
 
 	return &ssov1.GetOrCreateAppResponse{
-		Id: appID,
-		Created: created,
+		Id:      data.AppID,
+		Created: data.IsCreated,
 	}, nil
 }
 
 func (s *serverAPI) GetAccessToken(ctx context.Context, req *ssov1.GetAccessTokenRequest) (*ssov1.GetAccessTokenResponse, error) {
 	validationRules := map[string]string{
 		"refreshToken": "required,min=10,max=64",
-		"appId": "required,gt=0",
+		"appId":        "required,gt=0",
 	}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		s.log.Debug("Validation errors at login", "errors", errs)
@@ -145,10 +145,15 @@ func (s *serverAPI) GetAccessToken(ctx context.Context, req *ssov1.GetAccessToke
 		return nil, status.Error(codes.Internal, "failed to refresh token")
 	}
 	return &ssov1.GetAccessTokenResponse{
-		AccessToken:  token,
+		AccessToken: token,
 	}, nil
 }
 
-func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
-	panic("implement me")
-}
+// func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
+// 	validationRules := map[string]string{"token": "required,len=26"}
+// 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+// 		s.log.Debug("Validation errors at login", "errors", errs)
+// 		return nil, status.Error(codes.InvalidArgument, errs)
+// 	}
+// 	activationToken := s.auth.
+// }

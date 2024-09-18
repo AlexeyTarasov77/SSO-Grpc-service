@@ -1,6 +1,9 @@
 package models
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base32"
 	"errors"
 	"time"
 
@@ -8,27 +11,27 @@ import (
 )
 
 type App struct {
-	ID     int `db:"id"`
-	Name   string `db:"name"`
+	ID          int64  `db:"id"`
+	Name        string `db:"name"`
 	Description string `db:"description"`
-	Secret string `db:"secret"`
+	Secret      string `db:"secret"`
 }
 
 type Role string
 
 const (
-	RoleUser Role = "user"
+	RoleUser      Role = "user"
 	RoleModerator Role = "moderator"
-	RoleAdmin  Role = "admin"
+	RoleAdmin     Role = "admin"
 )
 
 type User struct {
-	ID        int `db:"id" json:"id"`
-	Username  string `db:"username" json:"username"`
-	Email     string `db:"email" json:"email"`
-	Password  password `db:"password" json:"-"`
-	Role      Role `db:"role" json:"role"`
-	IsActive  bool `db:"is_active" json:"is_active"`
+	ID        int       `db:"id" json:"id"`
+	Username  string    `db:"username" json:"username"`
+	Email     string    `db:"email" json:"email"`
+	Password  password  `db:"password" json:"-"`
+	Role      Role      `db:"role" json:"role"`
+	IsActive  bool      `db:"is_active" json:"is_active"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
@@ -59,7 +62,37 @@ func (p *password) Matches(plain string) (bool, error) {
 	return true, nil
 }
 
-type Tokens struct {
+type AuthTokens struct {
 	AccessToken  string
 	RefreshToken string
+}
+
+const (
+	ScopeActivation = "activation"
+)
+
+type Token struct {
+	Plaintext string
+	Hash      []byte
+	UserID    int64
+	Scope     string
+	Expiry    time.Time
+}
+
+func GenerateToken(userID int64, scope string, expiry time.Duration) (*Token, error) {
+	token := &Token{
+		UserID: userID,
+		Scope:  scope,
+		Expiry: time.Now().Add(expiry),
+	}
+	randomBytes := make([]byte, 16)
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return nil, err
+	}
+	token.Plaintext = base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(randomBytes)
+	hash := sha256.Sum256([]byte(token.Plaintext))
+	token.Hash = hash[:]
+
+	return token, nil
 }

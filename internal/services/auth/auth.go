@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"sso.service/internal/config"
 	"sso.service/internal/domain/models"
@@ -11,52 +12,53 @@ import (
 	"sso.service/internal/storage"
 )
 
-type UserSaver interface {
-	SaveUser(ctx context.Context, user *models.User) (int64, error)
-}
-
 type GetUserParams struct {
-	Email string
-	ID    int
+	Email    string
+	ID       int
 	IsActive *bool
 }
 
-type UserProvider interface {
-	User(ctx context.Context, params GetUserParams) (models.User, error)
-	IsAdmin(ctx context.Context, userID int64) (bool, error)
-}
-
 // struct with params to get app by id or by name
-type AppParams struct {
-	AppID int32
+type GetAppParams struct {
+	AppID   int32
 	AppName string
 }
 
-type AppProvider interface {
-	App(ctx context.Context, params AppParams) (models.App, error)
-	CreateApp(ctx context.Context, app *models.App) (int64, error)
+type usersModel interface {
+	Get(ctx context.Context, params GetUserParams) (*models.User, error)
+	IsAdmin(ctx context.Context, userID int64) (bool, error)
+	Create(ctx context.Context, user *models.User) (int64, error)
+}
+
+type appsModel interface {
+	Get(ctx context.Context, params GetAppParams) (*models.App, error)
+	Create(ctx context.Context, app *models.App) (int64, error)
+}
+
+type tokensModel interface {
+	GenerateAndInsert(ctx context.Context, userID int64, scope string, expiry time.Duration) (*models.Token, error)
 }
 
 type Auth struct {
-	log             *slog.Logger
-	userSaver       UserSaver
-	userProvider    UserProvider
-	appProvider     AppProvider
-	cfg             *config.Config
+	log          *slog.Logger
+	usersModel usersModel
+	appsModel  appsModel
+	tokensModel tokensModel
+	cfg          *config.Config
 }
 
 func New(
 	log *slog.Logger,
-	userSaver UserSaver,
-	userProvider UserProvider,
-	appProvider AppProvider,
+	userModel usersModel,
+	appsModel appsModel,
+	tokensModel tokensModel,
 	cfg *config.Config,
 ) *Auth {
 	return &Auth{
 		log,
-		userSaver,
-		userProvider,
-		appProvider,
+		userModel,
+		appsModel,
+		tokensModel,
 		cfg,
 	}
 }
@@ -66,54 +68,58 @@ func (a *Auth) Login(
 	email string,
 	password string,
 	appId int32,
-) (models.Tokens, error) {
+) (*models.AuthTokens, error) {
 	const op = "auth.Login"
 	log := a.log.With("operation", op)
-	emptyTokens := models.Tokens{}
-	user, err := a.userProvider.User(ctx, GetUserParams{Email: email})
+	user, err := a.usersModel.Get(ctx, GetUserParams{Email: email})
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
 			log.Warn("User not found", "email", email)
-			return emptyTokens, ErrInvalidCredentials
+			return nil, ErrInvalidCredentials
 		}
 		log.Error("Error getting user", "msg", err.Error())
-		return emptyTokens, err
+		return nil, err
 	}
 	matches, err := user.Password.Matches(password)
 	switch {
-		case err != nil:
-			log.Error("Error comparing password", "msg", err.Error())
-			return emptyTokens, err
-		case !matches:
-			log.Warn("Wrong password", "email", email)
-			return emptyTokens, ErrInvalidCredentials
+	case err != nil:
+		log.Error("Error comparing password", "msg", err.Error())
+		return nil, err
+	case !matches:
+		log.Warn("Wrong password", "email", email)
+		return nil, ErrInvalidCredentials
 	}
-	app, err := a.appProvider.App(ctx, AppParams{AppID: appId})
+	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appId})
 	if err != nil {
 		if errors.Is(err, storage.ErrAppNotFound) {
 			log.Warn("App not found", "app_id", appId)
-			return emptyTokens, ErrInvalidCredentials
+			return nil, ErrInvalidCredentials
 		}
 		log.Error("Error getting app", "msg", err.Error())
-		return emptyTokens, err
+		return nil, err
 	}
 	tokenProvider := jwtLib.NewTokenProvider(app.Secret, a.cfg.TokenSigningAlg)
 	tokenPayload := map[string]any{"uid": user.ID, "app_id": app.ID}
 	accessToken, err := tokenProvider.NewToken(a.cfg.AccessTokenTTL, tokenPayload)
 	if err != nil {
 		log.Error("Error creating access token", "msg", err.Error())
-		return emptyTokens, err
+		return nil, err
 	}
 	refreshToken, err := tokenProvider.NewToken(a.cfg.RefreshTokenTTL, tokenPayload)
 	if err != nil {
 		log.Error("Error creating refresh token", "msg", err.Error())
-		return emptyTokens, err
+		return nil, err
 	}
-	return models.Tokens{AccessToken: accessToken, RefreshToken: refreshToken}, nil
+	return &models.AuthTokens{AccessToken: accessToken, RefreshToken: refreshToken}, nil
 
 }
 
-func (a *Auth) Register(ctx context.Context, username string, plainPassword string, email string) (int64, error) {
+type UserIDAndToken struct {
+	UserID int64
+	Token  *models.Token
+}
+
+func (a *Auth) Register(ctx context.Context, username string, plainPassword string, email string) (*UserIDAndToken, error) {
 	const op = "auth.Register"
 	log := a.log.With("operation", op)
 	user := models.User{
@@ -123,26 +129,34 @@ func (a *Auth) Register(ctx context.Context, username string, plainPassword stri
 	err := user.Password.Set(plainPassword)
 	if err != nil {
 		log.Error("Error setting password", "msg", err.Error())
-		return 0, err
+		return nil, err
 	}
-	id, err := a.userSaver.SaveUser(ctx, &user)
+	userID, err := a.usersModel.Create(ctx, &user)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserAlreadyExists) {
 			log.Warn("User already exists", "email", email)
-			return 0, ErrUserAlreadyExists
+			return nil, ErrUserAlreadyExists
 		}
 		log.Error("Error saving user", "msg", err.Error())
-		return 0, err
+		return nil, err
 	}
-	log.Info("User saved", "id", id)
-	return id, nil
+	log.Info("User saved", "id", userID)
+	log.Info("Creating activation token", "userID", userID)
+	token, err := a.tokensModel.GenerateAndInsert(ctx, userID, models.ScopeActivation, a.cfg.ActivationTokenTTL)
+	if err != nil {
+		// TODO: Delete previously created user if can't create token
+		log.Error("Error creating activation token", "msg", err.Error())
+		return nil, err
+	}
+	log.Info("Activation token created", "token", token)
+	return &UserIDAndToken{UserID: userID, Token: token}, nil
 }
 
 func (a *Auth) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 	const op = "auth.IsAdmin"
 	log := a.log.With("operation", op, "user_id", userID)
 	log.Info("Checking whether user is admin")
-	isAdmin, err := a.userProvider.IsAdmin(ctx, userID)
+	isAdmin, err := a.usersModel.IsAdmin(ctx, userID)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
 			log.Warn("User not found", "user_id", userID)
@@ -155,34 +169,39 @@ func (a *Auth) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 	return isAdmin, nil
 }
 
+type AppIDAndIsCreated struct {
+	AppID int64
+	IsCreated bool
+}
+
 func (a *Auth) GetOrCreateApp(
 	ctx context.Context,
 	app *models.App,
-) (int64, bool, error) {
+) (*AppIDAndIsCreated, error) {
 	const op = "auth.GetOrCreateApp"
 	log := a.log.With("operation", op)
-	id, err := a.appProvider.CreateApp(ctx, app)
+	id, err := a.appsModel.Create(ctx, app)
 	if err != nil {
 		if errors.Is(err, storage.ErrAppAlreadyExists) {
 			log.Warn("App already exists", "name", app.Name)
-			app, err := a.appProvider.App(ctx, AppParams{AppName: app.Name})
+			app, err := a.appsModel.Get(ctx, GetAppParams{AppName: app.Name})
 			if err != nil {
 				log.Error("Error getting app", "msg", err.Error())
-				return 0, false, err
+				return nil, err
 			}
-			return int64(app.ID), false, nil
+			return &AppIDAndIsCreated{AppID: app.ID, IsCreated: false}, nil
 		}
 		log.Error("Error creating app", "msg", err.Error())
-		return 0, false, err
+		return nil, err
 	}
 	log.Info("App saved", "id", id)
-	return id, true, nil
+	return &AppIDAndIsCreated{AppID: id, IsCreated: true}, nil
 }
 
 func (a *Auth) GetAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error) {
 	const op = "auth.GetAccessToken"
 	log := a.log.With("operation", op)
-	app, err := a.appProvider.App(ctx, AppParams{AppID: appId})
+	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appId})
 	if err != nil {
 		if errors.Is(err, storage.ErrAppNotFound) {
 			log.Warn("App not found", "app_id", appId)
@@ -198,7 +217,7 @@ func (a *Auth) GetAccessToken(ctx context.Context, refreshToken string, appId in
 		return "", err
 	}
 	userID := claims["uid"].(float64)
-	user, err := a.userProvider.User(ctx, GetUserParams{ID: int(userID)})
+	user, err := a.usersModel.Get(ctx, GetUserParams{ID: int(userID)})
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
 			log.Warn("User not found", "user_id", int(userID))

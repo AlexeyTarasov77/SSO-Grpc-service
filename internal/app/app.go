@@ -8,6 +8,7 @@ import (
 	"sso.service/internal/config"
 	"sso.service/internal/services/auth"
 	"sso.service/internal/storage/postgres"
+	"sso.service/internal/storage/postgres/models"
 )
 
 
@@ -23,7 +24,8 @@ func New(log *slog.Logger, cfg *config.Config, storagePath string) *App {
 		panic(err)
 	}
 	log.Info("Database connected", "path", storagePath)
-	authService := auth.New(log, storage, storage, storage, cfg)
+	models := models.New(storage.DB)
+	authService := auth.New(log, models.User, models.App, models.Token, cfg)
 	gRPCApp := grpcapp.New(log, cfg.Server.Port, authService)
 	return &App{gRPCApp}
 }

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 	"sso.service/internal/domain/models"
 	"sso.service/internal/services/auth"
+	dbModels "sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
 )
 
@@ -96,7 +97,8 @@ func TestRegister(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotEmpty(t, respReg.GetUserId())
 			storage := st.NewTestStorage(t)
-			user, err := storage.User(ctx, auth.GetUserParams{Email: validEmail})
+			modelsObj := dbModels.New(storage.DB)
+			user, err := modelsObj.User.Get(ctx, auth.GetUserParams{Email: validEmail})
 			require.NoError(t, err)
 			assert.Equal(t, respReg.GetUserId(), int64(user.ID))
 			assert.Equal(t, validEmail, user.Email)
@@ -106,27 +108,3 @@ func TestRegister(t *testing.T) {
 		})
 	}
 }
-
-// func TestRegisterDuplicateEmail(t *testing.T) {
-// 	t.Parallel()
-// 	ctx, st := suite.New(t)
-// 	email := gofakeit.Email()
-// 	password := FakePassword()
-// 	username := gofakeit.Username()
-// 	id, err := st.AuthClient.Register(ctx, &ssov1.RegisterRequest{
-// 		Username: username,
-// 		Password: password,
-// 		Email:    email,
-// 	})
-// 	require.NoError(t, err)
-// 	assert.NotEmpty(t, id)
-// 	id, err = st.AuthClient.Register(ctx, &ssov1.RegisterRequest{
-// 		Username: username,
-// 		Password: password,
-// 		Email:    email,
-// 	})
-// 	assert.Error(t, err)
-// 	assert.Empty(t, id)
-// 	assert.ErrorContains(t, err, "user already exists")
-// 	assert.Equal(t, codes.AlreadyExists, status.Code(err))
-// }
