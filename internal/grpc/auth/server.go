@@ -20,7 +20,8 @@ type Auth interface {
 	Register(ctx context.Context, username string, password string, email string) (*auth.UserIDAndToken, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
 	GetOrCreateApp(ctx context.Context, app *models.App) (*auth.AppIDAndIsCreated, error)
-	GetAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error)
+	RenewAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error)
+	GetUser(ctx context.Context, params auth.GetUserParams) (*models.User, error)
 }
 
 type serverAPI struct {
@@ -39,7 +40,6 @@ func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.
 		"AppId":    "required,gt=0",
 	}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
-		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
 
@@ -59,8 +59,9 @@ func (s *serverAPI) IsAdmin(
 	ctx context.Context,
 	req *ssov1.IsAdminRequest,
 ) (*ssov1.IsAdminResponse, error) {
-	if req.GetUserId() == 0 {
-		return nil, status.Error(codes.InvalidArgument, "user id is required")
+	validationRules := map[string]string{"userId": "required,gt=0"}
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		return nil, status.Error(codes.InvalidArgument, errs)
 	}
 	isAdmin, err := s.auth.IsAdmin(ctx, req.GetUserId())
 	if err != nil {
@@ -84,7 +85,6 @@ func (s *serverAPI) Register(
 		"Email":    "required,email",
 	}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
-		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
 	data, err := s.auth.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetEmail())
@@ -112,7 +112,6 @@ func (s *serverAPI) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAp
 		"Secret":      "required,min=12,max=64",
 	}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
-		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
 
@@ -131,21 +130,58 @@ func (s *serverAPI) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAp
 	}, nil
 }
 
-func (s *serverAPI) GetAccessToken(ctx context.Context, req *ssov1.GetAccessTokenRequest) (*ssov1.GetAccessTokenResponse, error) {
+func (s *serverAPI) RenewAccessToken(ctx context.Context, req *ssov1.RenewAccessTokenRequest) (*ssov1.RenewAccessTokenResponse, error) {
 	validationRules := map[string]string{
 		"refreshToken": "required,min=10,max=64",
 		"appId":        "required,gt=0",
 	}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
-		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
-	token, err := s.auth.GetAccessToken(ctx, req.GetRefreshToken(), req.GetAppId())
+	token, err := s.auth.RenewAccessToken(ctx, req.GetRefreshToken(), req.GetAppId())
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to refresh token")
 	}
-	return &ssov1.GetAccessTokenResponse{
+	return &ssov1.RenewAccessTokenResponse{
 		AccessToken: token,
+	}, nil
+}
+
+func (s *serverAPI) GetUser(ctx context.Context, req *ssov1.GetUserRequest) (*ssov1.GetUserResponse, error) {
+	validationRules := map[string]string{
+		"id": "omitempty,gt=0",
+		"email": "omitempty,email",
+		"is_active": "omitempty,boolean",
+	}
+	if req.GetId() == 0 && req.GetEmail() == "" {
+		return nil, status.Error(codes.InvalidArgument, "either id or email must be provided")
+	}
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		return nil, status.Error(codes.InvalidArgument, errs)
+	}
+	s.log.Debug("Get user", "user_id", req.GetId(), "email", req.GetEmail(), "is_active", req.GetIsActive())
+	is_active := req.GetIsActive()
+	user, err := s.auth.GetUser(ctx, auth.GetUserParams{
+		ID:       req.GetId(),
+		Email:    req.GetEmail(),
+		IsActive: &is_active,
+	})
+	if err != nil {
+		if errors.Is(err, auth.ErrUserNotFound) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, "failed to get user")
+	}
+	return &ssov1.GetUserResponse{
+		User: &ssov1.User{
+			Id:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+			Role:     user.Role,
+			IsActive: user.IsActive,
+			CreatedAt:  user.CreatedAt.String(),
+			UpdatedAt:  user.UpdatedAt.String(),
+		},
 	}, nil
 }
 

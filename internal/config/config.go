@@ -8,13 +8,13 @@ import (
 )
 
 type Config struct {
-	Mode            string        `yaml:"mode"`
-	AccessTokenTTL  time.Duration `yaml:"access_token_ttl" env-default:"30m"`
-	RefreshTokenTTL time.Duration `yaml:"refresh_token_ttl" env-default:"24h"`
-	ActivationTokenTTL time.Duration `yaml:"activation_token_ttl" env-default:"1h"`
-	TokenSigningAlg string        `yaml:"token_signing_alg" env-required:"true"`
-	Server          Server        `yaml:"server" env-required:"true"`
-	DB              DB            `yaml:"db" env-required:"true"`
+	Mode               string        `yaml:"mode"`
+	AccessTokenTTL     time.Duration `yaml:"access_token_ttl" env-default:"30m"`
+	RefreshTokenTTL    time.Duration `yaml:"refresh_token_ttl" env-default:"24h"`
+	ActivationTokenTTL time.Duration `yaml:"activation_token_ttl" env-default:"6h"`
+	TokenSigningAlg    string        `yaml:"token_signing_alg" env-required:"true"`
+	Server             Server        `yaml:"server" env-required:"true"`
+	DB                 DB            `yaml:"db" env-required:"true"`
 }
 
 type Server struct {

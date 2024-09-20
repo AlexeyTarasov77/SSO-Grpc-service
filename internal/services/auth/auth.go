@@ -14,8 +14,8 @@ import (
 
 type GetUserParams struct {
 	Email    string
-	ID       int
-	IsActive *bool
+	ID       int64
+	IsActive *bool  // when nil will be evaluated to true
 }
 
 // struct with params to get app by id or by name
@@ -198,7 +198,7 @@ func (a *Auth) GetOrCreateApp(
 	return &AppIDAndIsCreated{AppID: id, IsCreated: true}, nil
 }
 
-func (a *Auth) GetAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error) {
+func (a *Auth) RenewAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error) {
 	const op = "auth.GetAccessToken"
 	log := a.log.With("operation", op)
 	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appId})
@@ -216,15 +216,30 @@ func (a *Auth) GetAccessToken(ctx context.Context, refreshToken string, appId in
 		log.Error("Error parsing refresh token", "msg", err.Error())
 		return "", err
 	}
-	userID := claims["uid"].(float64)
-	user, err := a.usersModel.Get(ctx, GetUserParams{ID: int(userID)})
+	userID := int64(claims["uid"].(float64))
+	user, err := a.usersModel.Get(ctx, GetUserParams{ID: userID})
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
-			log.Warn("User not found", "user_id", int(userID))
+			log.Warn("User not found", "user_id", userID)
 			return "", ErrUserNotFound
 		}
 		log.Error("Error getting user", "msg", err.Error())
 		return "", err
 	}
 	return tokenProvider.NewToken(a.cfg.AccessTokenTTL, map[string]any{"uid": user.ID, "app_id": app.ID})
+}
+
+func (a *Auth) GetUser(ctx context.Context, params GetUserParams) (*models.User, error) {
+	const op = "auth.GetUserByID"
+	log := a.log.With("operation", op)
+	user, err := a.usersModel.Get(ctx, params)
+	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			log.Warn("User not found", "params", params)
+			return nil, ErrUserNotFound
+		}
+		log.Error("Error getting user", "msg", err.Error())
+		return nil, err
+	}
+	return user, nil
 }

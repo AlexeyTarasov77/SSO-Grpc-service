@@ -17,7 +17,7 @@ type App struct {
 	Secret      string `db:"secret"`
 }
 
-type Role string
+type Role = string
 
 const (
 	RoleUser      Role = "user"
@@ -26,7 +26,7 @@ const (
 )
 
 type User struct {
-	ID        int       `db:"id" json:"id"`
+	ID        int64     `db:"id" json:"id"`
 	Username  string    `db:"username" json:"username"`
 	Email     string    `db:"email" json:"email"`
 	Password  password  `db:"password" json:"-"`

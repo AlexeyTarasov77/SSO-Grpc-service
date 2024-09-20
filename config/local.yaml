@@ -1,6 +1,7 @@
 mode: "local"
 access_token_ttl: 5m
 refresh_token_ttl: 24h
+activation_token_ttl: 68h
 token_signing_alg: HS256
 db:
   user: sso_user

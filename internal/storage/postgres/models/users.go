@@ -45,10 +45,10 @@ func (u *UserModel) Get(ctx context.Context, params auth.GetUserParams) (*models
 	var user models.User
 	err := u.DB.QueryRow(
 		ctx,
-		`SELECT id, username, email, password, role, is_active, created_at, updated_at FROM users
+		`SELECT id, username, email, role, is_active, created_at, updated_at FROM users
 		WHERE (email = $1 OR $1 = '') AND (id = $2 OR $2 = 0) AND is_active = $3`,
 		args...
-	).Scan(&user.ID, &user.Username, &user.Email, &user.Password.Hash, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
+	).Scan(&user.ID, &user.Username, &user.Email, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, storage.ErrUserNotFound
