@@ -37,16 +37,17 @@ func (u *UserModel) Create(ctx context.Context, user *models.User) (int64, error
 }
 
 func (u *UserModel) Get(ctx context.Context, params auth.GetUserParams) (*models.User, error) {
-	if params.IsActive == nil {
-		params.IsActive = new(bool)
-		*params.IsActive = true
+	args := []any{params.Email, params.ID}
+	query := `SELECT id, username, email, role, is_active, created_at, updated_at FROM users
+		WHERE (email = $1 OR $1 = '') AND (id = $2 OR $2 = 0)`
+	if params.IsActive != nil {
+		args = append(args, *params.IsActive)
+		query += " AND is_active = $3"
 	}
-	args := []any{params.Email, params.ID, *params.IsActive}
 	var user models.User
 	err := u.DB.QueryRow(
 		ctx,
-		`SELECT id, username, email, role, is_active, created_at, updated_at FROM users
-		WHERE (email = $1 OR $1 = '') AND (id = $2 OR $2 = 0) AND is_active = $3`,
+		query,
 		args...
 	).Scan(&user.ID, &user.Username, &user.Email, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {

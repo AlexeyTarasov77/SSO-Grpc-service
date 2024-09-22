@@ -15,10 +15,9 @@ import (
 type GetUserParams struct {
 	Email    string
 	ID       int64
-	IsActive *bool  // when nil will be evaluated to true
+	IsActive *bool  // made pointer to support nil values
 }
 
-// struct with params to get app by id or by name
 type GetAppParams struct {
 	AppID   int32
 	AppName string
@@ -242,4 +241,23 @@ func (a *Auth) GetUser(ctx context.Context, params GetUserParams) (*models.User,
 		return nil, err
 	}
 	return user, nil
+}
+
+func (a *Auth) NewActivationToken(ctx context.Context, email string) (string, error) {
+	const op = "auth.NewActivationToken"
+	log := a.log.With("operation", op)
+	user, err := a.GetUser(ctx, GetUserParams{Email: email})
+	if err != nil {
+		return "", err
+	}
+	if user.IsActive {
+		log.Warn("User already active", "email", email)
+		return "", ErrUserAlreadyActivated
+	}
+	token, err := a.tokensModel.GenerateAndInsert(ctx, user.ID, models.ScopeActivation, a.cfg.ActivationTokenTTL)
+	if err != nil {
+		log.Error("Error creating activation token", "msg", err.Error())
+		return "", err
+	}
+	return token.Plaintext, nil
 }

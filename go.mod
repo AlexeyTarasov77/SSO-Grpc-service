@@ -17,7 +17,7 @@ require (
 )
 
 require (
-	github.com/AlexeySHA256/protos v0.0.9 // indirect
+	github.com/AlexeySHA256/protos v0.1.0 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect

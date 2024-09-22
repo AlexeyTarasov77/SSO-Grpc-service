@@ -22,6 +22,7 @@ type Auth interface {
 	GetOrCreateApp(ctx context.Context, app *models.App) (*auth.AppIDAndIsCreated, error)
 	RenewAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error)
 	GetUser(ctx context.Context, params auth.GetUserParams) (*models.User, error)
+	NewActivationToken(ctx context.Context, email string) (string, error)
 }
 
 type serverAPI struct {
@@ -182,6 +183,27 @@ func (s *serverAPI) GetUser(ctx context.Context, req *ssov1.GetUserRequest) (*ss
 			CreatedAt:  user.CreatedAt.String(),
 			UpdatedAt:  user.UpdatedAt.String(),
 		},
+	}, nil
+}
+
+func (s *serverAPI) NewActivationToken(ctx context.Context, req *ssov1.NewActivationTokenRequest) (*ssov1.NewActivationTokenResponse, error) {
+	validationRules := map[string]string{"email": "required,email"}
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		return nil, status.Error(codes.InvalidArgument, errs)
+	}
+	token, err := s.auth.NewActivationToken(ctx, req.GetEmail())
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrUserNotFound):
+			return nil, status.Error(codes.NotFound, err.Error())
+		case errors.Is(err, auth.ErrUserAlreadyActivated):
+			return nil, status.Error(codes.AlreadyExists, err.Error())
+		default:
+			return nil, status.Error(codes.Internal, "failed to create activation token")
+		}
+	}
+	return &ssov1.NewActivationTokenResponse{
+		ActivationToken: token,
 	}, nil
 }
 
