@@ -41,7 +41,7 @@ func (t *TokenModel) GenerateAndInsert(ctx context.Context, userID int64, scope 
 	return token, nil
 }
 
-func (t *TokenModel) DeleteAllForUserWithScope(ctx context.Context, userID int64, scope string) error {
+func (t *TokenModel) DeleteAllForUser(ctx context.Context, userID int64, scope string) error {
 	result, err := t.DB.Exec(ctx, "DELETE FROM tokens WHERE user_id = $1 AND scope = $2", userID, scope)
 	if err != nil {
 		return err

@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 
 	"github.com/jackc/pgx/v5"
@@ -36,9 +37,30 @@ func (u *UserModel) Create(ctx context.Context, user *models.User) (int64, error
 	return userID, nil
 }
 
+func (u *UserModel) Update(ctx context.Context, user *models.User) (*models.User, error) {
+	var updatedUser models.User
+    err := u.DB.QueryRow(
+		ctx,
+		`UPDATE users SET username = $1, password = $2, email = $3, role = $4, is_active = $5 WHERE id = $6 RETURNING id, username, email, role, is_active, created_at, updated_at`,
+		user.Username,
+		user.Password.Hash,
+		user.Email,
+		user.Role,
+		user.IsActive,
+		user.ID,
+	).Scan(&updatedUser.ID, &updatedUser.Username, &updatedUser.Email, &updatedUser.Role, &updatedUser.IsActive, &updatedUser.CreatedAt, &updatedUser.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, storage.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &updatedUser, nil
+}
+
 func (u *UserModel) Get(ctx context.Context, params auth.GetUserParams) (*models.User, error) {
 	args := []any{params.Email, params.ID}
-	query := `SELECT id, username, email, role, is_active, created_at, updated_at FROM users
+	query := `SELECT id, username, password, email, role, is_active, created_at, updated_at FROM users
 		WHERE (email = $1 OR $1 = '') AND (id = $2 OR $2 = 0)`
 	if params.IsActive != nil {
 		args = append(args, *params.IsActive)
@@ -48,8 +70,28 @@ func (u *UserModel) Get(ctx context.Context, params auth.GetUserParams) (*models
 	err := u.DB.QueryRow(
 		ctx,
 		query,
-		args...
-	).Scan(&user.ID, &user.Username, &user.Email, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
+		args...,
+	).Scan(&user.ID, &user.Username, &user.Password.Hash, &user.Email, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, storage.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (u *UserModel) GetForToken(ctx context.Context, tokenScope string, plainToken string) (*models.User, error) {
+	var user models.User
+	tokenHash := sha256.Sum256([]byte(plainToken))
+	query := `
+		SELECT u.id, u.username, u.password, u.email, u.role, u.is_active, u.created_at, u.updated_at FROM users u
+		JOIN tokens t ON t.user_id = u.id
+		WHERE t.hash = $1 AND t.scope = $2 AND t.expiry >= now()`
+	args := []any{tokenHash[:], tokenScope}
+	err := u.DB.QueryRow(
+		ctx, query, args...,
+	).Scan(&user.ID, &user.Username, &user.Password.Hash, &user.Email, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, storage.ErrUserNotFound
