@@ -22,6 +22,7 @@ type Auth interface {
 	GetOrCreateApp(ctx context.Context, app *models.App) (*auth.AppIDAndIsCreated, error)
 	RenewAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error)
 	GetUser(ctx context.Context, params auth.GetUserParams) (*models.User, error)
+	ActivateUser(ctx context.Context, plaintToken string) (*models.User, error)
 	NewActivationToken(ctx context.Context, email string) (string, error)
 }
 
@@ -207,11 +208,34 @@ func (s *serverAPI) NewActivationToken(ctx context.Context, req *ssov1.NewActiva
 	}, nil
 }
 
-// func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
-// 	validationRules := map[string]string{"token": "required,len=26"}
-// 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
-// 		s.log.Debug("Validation errors at login", "errors", errs)
-// 		return nil, status.Error(codes.InvalidArgument, errs)
-// 	}
-// 	activationToken := s.auth.
-// }
+func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
+	validationRules := map[string]string{"ActivationToken": "required,len=26"}
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		s.log.Debug("Validation errors at login", "errors", errs)
+		return nil, status.Error(codes.InvalidArgument, errs)
+	}
+	user, err := s.auth.ActivateUser(ctx, req.GetActivationToken())
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrUserNotFound):
+			return nil, status.Error(codes.NotFound, err.Error())
+		case errors.Is(err, auth.ErrUserAlreadyActivated):
+			return nil, status.Error(codes.AlreadyExists, err.Error())
+		case errors.Is(err, auth.ErrInvalidToken):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		default:
+			return nil, status.Error(codes.Internal, "failed to activate user")
+		}
+	}
+	return &ssov1.ActivateUserResponse{
+		User: &ssov1.User{
+			Id:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+			Role:     user.Role,
+			IsActive: user.IsActive,
+			CreatedAt:  user.CreatedAt.String(),
+			UpdatedAt:  user.UpdatedAt.String(),
+		},
+	}, nil
+}

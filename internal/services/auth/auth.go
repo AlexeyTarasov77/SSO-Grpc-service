@@ -25,8 +25,10 @@ type GetAppParams struct {
 
 type usersModel interface {
 	Get(ctx context.Context, params GetUserParams) (*models.User, error)
+	GetForToken(ctx context.Context, tokenScope string, plainToken string) (*models.User, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
 	Create(ctx context.Context, user *models.User) (int64, error)
+	Update(ctx context.Context, user *models.User) (*models.User, error)
 }
 
 type appsModel interface {
@@ -36,6 +38,7 @@ type appsModel interface {
 
 type tokensModel interface {
 	GenerateAndInsert(ctx context.Context, userID int64, scope string, expiry time.Duration) (*models.Token, error)
+	DeleteAllForUser(ctx context.Context, userID int64, scope string) error
 }
 
 type Auth struct {
@@ -238,6 +241,36 @@ func (a *Auth) GetUser(ctx context.Context, params GetUserParams) (*models.User,
 			return nil, ErrUserNotFound
 		}
 		log.Error("Error getting user", "msg", err.Error())
+		return nil, err
+	}
+	return user, nil
+}
+
+func (a *Auth) ActivateUser(ctx context.Context, plainToken string) (*models.User, error) {
+	const op = "auth.ActivateUser"
+	log := a.log.With("operation", op, "token", plainToken)
+	user, err := a.usersModel.GetForToken(ctx, models.ScopeActivation, plainToken)
+	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			log.Warn("Invalid or expired activation token", "token", plainToken)
+			return nil, ErrInvalidToken
+		}
+		log.Error("Error getting user for token", "msg", err.Error())
+		return nil, err
+	}
+	if user.IsActive {
+		log.Warn("User already active", "email", user.Email)
+		return nil, ErrUserAlreadyActivated
+	}
+	user.IsActive = true
+	user, err = a.usersModel.Update(ctx, user)
+	if err != nil {
+		log.Error("Error updating user", "msg", err.Error())
+		return nil, err
+	}
+	err = a.tokensModel.DeleteAllForUser(ctx, user.ID, models.ScopeActivation)
+	if err != nil {
+		log.Error("Error deleting activation tokens", "msg", err.Error())
 		return nil, err
 	}
 	return user, nil
