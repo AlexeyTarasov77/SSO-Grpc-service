@@ -24,6 +24,7 @@ type Auth interface {
 	GetUser(ctx context.Context, params auth.GetUserParams) (*models.User, error)
 	ActivateUser(ctx context.Context, plaintToken string) (*models.User, error)
 	NewActivationToken(ctx context.Context, email string) (string, error)
+	VerifyToken(ctx context.Context, appID int32, token string) error
 }
 
 type serverAPI struct {
@@ -238,4 +239,25 @@ func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserReq
 			UpdatedAt:  user.UpdatedAt.String(),
 		},
 	}, nil
+}
+
+func (s *serverAPI) VerifyToken(ctx context.Context, req *ssov1.VerifyTokenRequest) (*ssov1.VerifyTokenResponse, error) {
+	validationRules := map[string]string{"token": "required"}
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		s.log.Debug("Validation errors at login", "errors", errs)
+		return nil, status.Error(codes.InvalidArgument, errs)
+	}
+	err := s.auth.VerifyToken(ctx, req.GetAppId(), req.GetToken())
+	isTokenValid := true
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrInvalidToken):
+			isTokenValid = false
+		case errors.Is(err, auth.ErrAppNotFound):
+			return nil, status.Error(codes.NotFound, err.Error())
+		default:
+			return nil, status.Error(codes.Internal, "failed to verify token")
+		}
+	}
+	return &ssov1.VerifyTokenResponse{IsValid: isTokenValid}, nil
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"sso.service/internal/config"
 	"sso.service/internal/domain/models"
 	jwtLib "sso.service/internal/lib/jwt"
@@ -146,7 +148,6 @@ func (a *Auth) Register(ctx context.Context, username string, plainPassword stri
 	log.Info("Creating activation token", "userID", userID)
 	token, err := a.tokensModel.GenerateAndInsert(ctx, userID, models.ScopeActivation, a.cfg.ActivationTokenTTL)
 	if err != nil {
-		// TODO: Delete previously created user if can't create token
 		log.Error("Error creating activation token", "msg", err.Error())
 		return nil, err
 	}
@@ -279,6 +280,7 @@ func (a *Auth) ActivateUser(ctx context.Context, plainToken string) (*models.Use
 func (a *Auth) NewActivationToken(ctx context.Context, email string) (string, error) {
 	const op = "auth.NewActivationToken"
 	log := a.log.With("operation", op)
+	email = strings.Trim(email, " ")
 	user, err := a.GetUser(ctx, GetUserParams{Email: email})
 	if err != nil {
 		return "", err
@@ -293,4 +295,31 @@ func (a *Auth) NewActivationToken(ctx context.Context, email string) (string, er
 		return "", err
 	}
 	return token.Plaintext, nil
+}
+
+func (a *Auth) VerifyToken(ctx context.Context, appID int32, token string) (error) {
+	const op = "auth.VerifyToken"
+	log := a.log.With("operation", op)
+	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appID})
+	if err != nil {
+		if errors.Is(err, storage.ErrAppNotFound) {
+			log.Warn("App not found", "app_id", appID)
+			return ErrAppNotFound
+		}
+		log.Error("Error getting app", "msg", err.Error())
+		return err
+	}
+	tokenProvider := jwtLib.NewTokenProvider(app.Secret, a.cfg.TokenSigningAlg)
+	_, err = tokenProvider.ParseClaimsFromToken(token)
+	if err != nil {
+		switch {
+		case errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenMalformed):
+			log.Warn(err.Error(), "token", token)
+			return ErrInvalidToken
+		default:
+			log.Error("Error parsing token", "msg", err.Error())
+			return err
+		}
+	}
+	return nil
 }
