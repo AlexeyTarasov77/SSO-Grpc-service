@@ -25,7 +25,7 @@ func New(log *slog.Logger, cfg *config.Config, storagePath string) *App {
 	}
 	log.Info("Database connected", "path", storagePath)
 	models := models.New(storage.DB)
-	authService := auth.New(log, models.User, models.App, models.Token, cfg)
+	authService := auth.New(log, models.User, models.App, cfg)
 	gRPCApp := grpcapp.New(log, cfg.Server.Port, authService)
 	return &App{gRPCApp}
 }

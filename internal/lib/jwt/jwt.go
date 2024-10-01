@@ -15,6 +15,8 @@ func NewTokenProvider(signingKey string, signingAlg string) *TokenProvider {
 	return &TokenProvider{signingKey, signingAlg}
 }
 
+
+// claims - is an optional param
 func (tp *TokenProvider) NewToken(expires time.Duration, _claims ...map[string]any) (string, error) {
 	if expires <= 0 {
 		panic("expires must be greater than 0")

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
-	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"sso.service/internal/config"
@@ -38,16 +37,10 @@ type appsModel interface {
 	Create(ctx context.Context, app *models.App) (int64, error)
 }
 
-type tokensModel interface {
-	GenerateAndInsert(ctx context.Context, userID int64, scope string, expiry time.Duration) (*models.Token, error)
-	DeleteAllForUser(ctx context.Context, userID int64, scope string) error
-}
-
 type Auth struct {
 	log          *slog.Logger
 	usersModel usersModel
 	appsModel  appsModel
-	tokensModel tokensModel
 	cfg          *config.Config
 }
 
@@ -55,14 +48,12 @@ func New(
 	log *slog.Logger,
 	userModel usersModel,
 	appsModel appsModel,
-	tokensModel tokensModel,
 	cfg *config.Config,
 ) *Auth {
 	return &Auth{
 		log,
 		userModel,
 		appsModel,
-		tokensModel,
 		cfg,
 	}
 }
@@ -120,10 +111,10 @@ func (a *Auth) Login(
 
 type UserIDAndToken struct {
 	UserID int64
-	Token  *models.Token
+	Token  string
 }
 
-func (a *Auth) Register(ctx context.Context, username string, plainPassword string, email string) (*UserIDAndToken, error) {
+func (a *Auth) Register(ctx context.Context, username string, plainPassword string, email string, appID int32) (*UserIDAndToken, error) {
 	const op = "auth.Register"
 	log := a.log.With("operation", op)
 	user := models.User{
@@ -145,8 +136,19 @@ func (a *Auth) Register(ctx context.Context, username string, plainPassword stri
 		return nil, err
 	}
 	log.Info("User saved", "id", userID)
+	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appID})
+	if err != nil {
+		if errors.Is(err, storage.ErrAppNotFound) {
+			log.Warn("App not found", "app_id", appID)
+			return nil, ErrAppNotFound
+		}
+		log.Error("Error getting app", "msg", err.Error())
+		return nil, err
+	}
 	log.Info("Creating activation token", "userID", userID)
-	token, err := a.tokensModel.GenerateAndInsert(ctx, userID, models.ScopeActivation, a.cfg.ActivationTokenTTL)
+	tokenProvider := jwtLib.NewTokenProvider(app.Secret, a.cfg.TokenSigningAlg)
+	claims := map[string]any{"uid": userID, "app_id": appID}
+	token, err := tokenProvider.NewToken(a.cfg.ActivationTokenTTL, claims)
 	if err != nil {
 		log.Error("Error creating activation token", "msg", err.Error())
 		return nil, err
@@ -247,13 +249,35 @@ func (a *Auth) GetUser(ctx context.Context, params GetUserParams) (*models.User,
 	return user, nil
 }
 
-func (a *Auth) ActivateUser(ctx context.Context, plainToken string) (*models.User, error) {
+func (a *Auth) ActivateUser(ctx context.Context, token string, appID int32) (*models.User, error) {
 	const op = "auth.ActivateUser"
-	log := a.log.With("operation", op, "token", plainToken)
-	user, err := a.usersModel.GetForToken(ctx, models.ScopeActivation, plainToken)
+	log := a.log.With("operation", op, "token", token)
+	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appID})
+	if err != nil {
+		if errors.Is(err, storage.ErrAppNotFound) {
+			log.Warn("App not found", "app_id", appID)
+			return nil, ErrAppNotFound
+		}
+		log.Error("Error getting app", "msg", err.Error())
+		return nil, err
+	}
+	tokenProvider := jwtLib.NewTokenProvider(app.Secret, a.cfg.TokenSigningAlg)
+	claims, err := tokenProvider.ParseClaimsFromToken(token)
+	if err != nil {
+		switch {
+		case errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenMalformed):
+			log.Warn(err.Error(), "token", token)
+			return nil, ErrInvalidToken
+		default:
+			log.Error("Error parsing token", "msg", err.Error())
+			return nil, err
+		}
+	}
+	userID := int64(claims["uid"].(float64))
+	user, err := a.usersModel.Get(ctx, GetUserParams{ID: userID})
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
-			log.Warn("Invalid or expired activation token", "token", plainToken)
+			log.Warn("Invalid or expired activation token", "token", token)
 			return nil, ErrInvalidToken
 		}
 		log.Error("Error getting user for token", "msg", err.Error())
@@ -269,15 +293,10 @@ func (a *Auth) ActivateUser(ctx context.Context, plainToken string) (*models.Use
 		log.Error("Error updating user", "msg", err.Error())
 		return nil, err
 	}
-	err = a.tokensModel.DeleteAllForUser(ctx, user.ID, models.ScopeActivation)
-	if err != nil {
-		log.Error("Error deleting activation tokens", "msg", err.Error())
-		return nil, err
-	}
 	return user, nil
 }
 
-func (a *Auth) NewActivationToken(ctx context.Context, email string) (string, error) {
+func (a *Auth) NewActivationToken(ctx context.Context, email string, appID int32) (string, error) {
 	const op = "auth.NewActivationToken"
 	log := a.log.With("operation", op)
 	email = strings.Trim(email, " ")
@@ -289,12 +308,22 @@ func (a *Auth) NewActivationToken(ctx context.Context, email string) (string, er
 		log.Warn("User already active", "email", email)
 		return "", ErrUserAlreadyActivated
 	}
-	token, err := a.tokensModel.GenerateAndInsert(ctx, user.ID, models.ScopeActivation, a.cfg.ActivationTokenTTL)
+	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appID})
+	if err != nil {
+		if errors.Is(err, storage.ErrAppNotFound) {
+			log.Warn("App not found", "app_id", appID)
+			return "", ErrAppNotFound
+		}
+		log.Error("Error getting app", "msg", err.Error())
+		return "", err
+	}
+	tokenProvider := jwtLib.NewTokenProvider(app.Secret, a.cfg.TokenSigningAlg)
+	token, err := tokenProvider.NewToken(a.cfg.ActivationTokenTTL, map[string]any{"uid": user.ID, "app_id": app.ID})
 	if err != nil {
 		log.Error("Error creating activation token", "msg", err.Error())
 		return "", err
 	}
-	return token.Plaintext, nil
+	return token, nil
 }
 
 func (a *Auth) VerifyToken(ctx context.Context, appID int32, token string) (error) {

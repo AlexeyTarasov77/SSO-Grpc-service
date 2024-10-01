@@ -17,13 +17,13 @@ import (
 
 type Auth interface {
 	Login(ctx context.Context, username string, password string, appId int32) (*models.AuthTokens, error)
-	Register(ctx context.Context, username string, password string, email string) (*auth.UserIDAndToken, error)
+	Register(ctx context.Context, username string, password string, email string, appId int32) (*auth.UserIDAndToken, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
 	GetOrCreateApp(ctx context.Context, app *models.App) (*auth.AppIDAndIsCreated, error)
 	RenewAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error)
 	GetUser(ctx context.Context, params auth.GetUserParams) (*models.User, error)
-	ActivateUser(ctx context.Context, plaintToken string) (*models.User, error)
-	NewActivationToken(ctx context.Context, email string) (string, error)
+	ActivateUser(ctx context.Context, token string,  appID int32) (*models.User, error)
+	NewActivationToken(ctx context.Context, email string, appID int32) (string, error)
 	VerifyToken(ctx context.Context, appID int32, token string) error
 }
 
@@ -90,7 +90,7 @@ func (s *serverAPI) Register(
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
-	data, err := s.auth.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetEmail())
+	data, err := s.auth.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetEmail(), req.GetAppId())
 	if err != nil {
 		if errors.Is(err, auth.ErrUserAlreadyExists) {
 			errorMsg, err := json.Marshal(map[string]string{"email": err.Error()})
@@ -104,7 +104,7 @@ func (s *serverAPI) Register(
 	}
 	return &ssov1.RegisterResponse{
 		UserId:          data.UserID,
-		ActivationToken: data.Token.Plaintext,
+		ActivationToken: data.Token,
 	}, nil
 }
 
@@ -193,7 +193,7 @@ func (s *serverAPI) NewActivationToken(ctx context.Context, req *ssov1.NewActiva
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
-	token, err := s.auth.NewActivationToken(ctx, req.GetEmail())
+	token, err := s.auth.NewActivationToken(ctx, req.GetEmail(), req.GetAppId())
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrUserNotFound):
@@ -210,12 +210,12 @@ func (s *serverAPI) NewActivationToken(ctx context.Context, req *ssov1.NewActiva
 }
 
 func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
-	validationRules := map[string]string{"ActivationToken": "required,len=26"}
+	validationRules := map[string]string{"activation_token": "required"}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
-	user, err := s.auth.ActivateUser(ctx, req.GetActivationToken())
+	user, err := s.auth.ActivateUser(ctx, req.GetActivationToken(), req.GetAppId())
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrUserNotFound):
