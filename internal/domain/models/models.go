@@ -59,6 +59,23 @@ func (p *password) Matches(plain string) (bool, error) {
 	return true, nil
 }
 
+type Permission struct {
+	ID int64
+	Code string
+}
+
+// list of permission codes
+type Permissions []string
+
+func (perms Permissions) Includes(value string) (bool) {
+	for _, perm := range perms {
+        if perm == value {
+            return true
+        }
+    }
+    return false
+}
+
 type AuthTokens struct {
 	AccessToken  string
 	RefreshToken string
