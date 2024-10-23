@@ -1,5 +1,5 @@
 BEGIN;
-DROP TYPE IF EXISTS role;
+DROP TYPE IF EXISTS role CASCADE;
 CREATE TYPE role AS ENUM ('user', 'moderator', 'admin');
 
 CREATE TABLE IF NOT EXISTS users (
@@ -21,7 +21,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_customer_modtime BEFORE UPDATE ON users
+CREATE OR REPLACE TRIGGER update_user_timestamp BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
 
 CREATE INDEX IF NOT EXISTS users_email_idx ON users (email);

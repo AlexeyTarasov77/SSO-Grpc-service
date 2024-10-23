@@ -1,0 +1,22 @@
+
+volumes:
+  sso_postgres_data:
+
+services:
+  sso:
+    container_name: sso_app
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    volumes:
+      - ./:/app
+
+  db:
+    container_name: sso_db
+    image: postgres:15-alpine
+    volumes:
+      - sso_postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env.postgres

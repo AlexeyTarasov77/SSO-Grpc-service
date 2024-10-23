@@ -20,7 +20,7 @@ func main() {
 	}
 	m, err := migrate.New(
 		"file://"+migrationsPath,
-		fmt.Sprintf("postgres://%s?x-migrations-table=%s&sslmode=disable", storagePath, migrationsTableName),
+		fmt.Sprintf("%s?x-migrations-table=%s&sslmode=disable", storagePath, migrationsTableName),
 	)
 	if err != nil {
 		panic(err)

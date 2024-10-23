@@ -6,7 +6,7 @@ token_signing_alg: HS256
 db:
   user: sso_user
   password: 1234
-  host: localhost
+  host: db
   port: 5432
   name: sso
   load_timeout: 5s

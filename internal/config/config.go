@@ -27,8 +27,8 @@ type DB struct {
 	Port        string        `yaml:"port" env:"DB_PORT" env-default:"5432"`
 	Host        string        `yaml:"host" env:"DB_HOST" env-default:"localhost"`
 	Name        string        `yaml:"name" env:"DB_NAME" env-required:"true"`
-	User        string        `yaml:"user" env:"POSTGRES_USER" env-required:"true"`
-	Password    string        `yaml:"password" env:"POSTGRES_PASSWORD" env-required:"true"`
+	User        string        `yaml:"user" env:"DB_USER" env-required:"true"`
+	Password    string        `yaml:"password" env:"DB_PASSWORD" env-required:"true"`
 	LoadTimeout time.Duration `yaml:"load_timeout" env-default:"10s"`
 }
 
