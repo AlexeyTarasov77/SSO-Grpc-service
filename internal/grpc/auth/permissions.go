@@ -28,3 +28,19 @@ func (s *serverAPI) CreatePermission(ctx context.Context, req *ssov1.CreatePermi
 		Code: permission.Code,
 	}}, nil
 }
+
+func (s *serverAPI) CheckPermission(ctx context.Context, req *ssov1.CheckPermissionRequest) (*ssov1.CheckPermissionResponse, error) {
+	validationRules := map[string]string{"code": "required,min=6,max=32"}
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		return nil, status.Error(codes.InvalidArgument, errs)
+	}
+	hasPermission, err := s.auth.CheckPermission(ctx, req.GetUserId(), req.GetPermissionCode())
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrPermissionNotFound) || errors.Is(err, auth.ErrUserNotFound):
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, "failed to check permission")
+	}
+	return &ssov1.CheckPermissionResponse{HasPermission: hasPermission}, nil
+}

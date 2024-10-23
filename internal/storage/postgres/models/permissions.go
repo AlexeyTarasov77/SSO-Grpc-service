@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"sso.service/internal/domain/models"
+	"sso.service/internal/services/auth"
 	"sso.service/internal/storage"
 	"sso.service/internal/storage/postgres"
 )
@@ -33,7 +34,22 @@ func (p *PermissionModel) Create(ctx context.Context, code string) (*models.Perm
     return &permission, nil
 }
 
-func (p *PermissionModel) CheckForUser(ctx context.Context, userID int64, code string) (bool, error) {
+func (p *PermissionModel) Get(ctx context.Context, params auth.PermissionGetParams) (*models.Permission, error) {
+	var permission models.Permission
+	const query = `
+		SELECT * FROM permissions WHERE (id = $1 OR $1 = 0) AND (code = $2 OR $2 = '')`
+	args := []any{params.ID, params.Code}
+	err := p.DB.QueryRow(ctx, query, args...).Scan(&permission.ID, &permission.Code)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, storage.ErrRecordNotFound
+		}
+		return nil, err
+	}
+	return &permission, nil
+}
+
+func (p *PermissionModel) ExistsForUser(ctx context.Context, userID int64, code string) (bool, error) {
 	var exists bool
 	const query = `
 		SELECT EXISTS(
@@ -45,36 +61,33 @@ func (p *PermissionModel) CheckForUser(ctx context.Context, userID int64, code s
 	args := []any{userID, code}
 	err := p.DB.QueryRow(ctx, query, args...).Scan(&exists)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, storage.ErrRecordNotFound
-		}
 		return false, err
 	}
 	return exists, nil
 }
 
 
-func (p *PermissionModel) GetAllForUser(ctx context.Context, userID int64) (models.Permissions, error) {
-	const query = `
-		SELECT p.id, p.code FROM permissions p 
-		JOIN users_permissions up ON p.id=up.permission_id
-		JOIN users u ON u.id=up.user_id
-		WHERE u.id=$1
-	`
-	args := []any{userID}
-	rows, err := p.DB.Query(ctx, query, args...)
-	if err != nil {
-        return nil, err
-    }
-	defer rows.Close()
-	permissions := make(models.Permissions, 0, rows.CommandTag().RowsAffected())
-	for rows.Next() {
-		var perm models.Permission
-		err = rows.Scan(&perm.ID, &perm.Code)
-		if err != nil {
-			return nil, err
-		}
-		permissions = append(permissions, perm)
-	}
-	return permissions, nil
-}
+// func (p *PermissionModel) GetAllForUser(ctx context.Context, userID int64) (models.Permissions, error) {
+// 	const query = `
+// 		SELECT p.id, p.code FROM permissions p 
+// 		JOIN users_permissions up ON p.id=up.permission_id
+// 		JOIN users u ON u.id=up.user_id
+// 		WHERE u.id=$1
+// 	`
+// 	args := []any{userID}
+// 	rows, err := p.DB.Query(ctx, query, args...)
+// 	if err != nil {
+//         return nil, err
+//     }
+// 	defer rows.Close()
+// 	permissions := make(models.Permissions, 0, rows.CommandTag().RowsAffected())
+// 	for rows.Next() {
+// 		var perm models.Permission
+// 		err = rows.Scan(&perm.ID, &perm.Code)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		permissions = append(permissions, perm)
+// 	}
+// 	return permissions, nil
+// }

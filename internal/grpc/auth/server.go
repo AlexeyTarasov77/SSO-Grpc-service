@@ -21,6 +21,7 @@ type AuthService interface {
 	NewActivationToken(ctx context.Context, email string, appID int32) (string, error)
 	VerifyToken(ctx context.Context, appID int32, token string) error
 	CreatePermission(ctx context.Context, code string) (*models.Permission, error)
+	CheckPermission(ctx context.Context, userID int64, permission string) (bool, error)
 }
 
 type serverAPI struct {
