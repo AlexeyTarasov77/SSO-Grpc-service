@@ -20,6 +20,10 @@ github.com/AlexeySHA256/protos v0.1.1 h1:var8qin1NcEyVIISKd3WjO1IGxg6ntJbXTeY25A
 github.com/AlexeySHA256/protos v0.1.1/go.mod h1:7187SUlaNKuvAz4GMJJtOURDe3Z/QwdUs/VDYVPb44k=
 github.com/AlexeySHA256/protos v0.1.2 h1:EfbSG2Tc549IiVAMjsqUPQakcWMVey/voWTq2rDZy6g=
 github.com/AlexeySHA256/protos v0.1.2/go.mod h1:7187SUlaNKuvAz4GMJJtOURDe3Z/QwdUs/VDYVPb44k=
+github.com/AlexeySHA256/protos v0.1.3 h1:gJ+hV7IME0twnemfb8fky2NVKAccFw7gV6c2v1RAjPo=
+github.com/AlexeySHA256/protos v0.1.3/go.mod h1:7187SUlaNKuvAz4GMJJtOURDe3Z/QwdUs/VDYVPb44k=
+github.com/AlexeySHA256/protos v0.1.4 h1:LKz2Vo5BOmVB67QMb5Zy3ybNlwLPKemSWQcz3ifuAkY=
+github.com/AlexeySHA256/protos v0.1.4/go.mod h1:7187SUlaNKuvAz4GMJJtOURDe3Z/QwdUs/VDYVPb44k=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 h1:L/gRVlceqvL25UVaW/CKtUDjefjrs0SPonmDGUVOYP0=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/BurntSushi/toml v1.2.1/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=

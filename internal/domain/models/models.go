@@ -65,11 +65,11 @@ type Permission struct {
 }
 
 // list of permission codes
-type Permissions []string
+type Permissions []Permission
 
 func (perms Permissions) Includes(value string) (bool) {
 	for _, perm := range perms {
-        if perm == value {
+        if perm.Code == value {
             return true
         }
     }

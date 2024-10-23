@@ -30,7 +30,7 @@ func (u *UserModel) Create(ctx context.Context, user *models.User) (int64, error
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == postgres.UniqueViolationErrCode {
-			return 0, storage.ErrUserAlreadyExists
+			return 0, storage.ErrRecordAlreadyExists
 		}
 		return 0, err
 	}
@@ -51,7 +51,7 @@ func (u *UserModel) Update(ctx context.Context, user *models.User) (*models.User
 	).Scan(&updatedUser.ID, &updatedUser.Username, &updatedUser.Email, &updatedUser.Role, &updatedUser.IsActive, &updatedUser.CreatedAt, &updatedUser.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, storage.ErrUserNotFound
+			return nil, storage.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (u *UserModel) Get(ctx context.Context, params auth.GetUserParams) (*models
 	).Scan(&user.ID, &user.Username, &user.Password.Hash, &user.Email, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, storage.ErrUserNotFound
+			return nil, storage.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (u *UserModel) GetForToken(ctx context.Context, tokenScope string, plainTok
 	).Scan(&user.ID, &user.Username, &user.Password.Hash, &user.Email, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, storage.ErrUserNotFound
+			return nil, storage.ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (u *UserModel) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 	err = transation.QueryRow(ctx, "SELECT role FROM users WHERE id = $1 FOR UPDATE", userID).Scan(&role)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return false, storage.ErrUserNotFound
+			return false, storage.ErrRecordNotFound
 		}
 		return false, err
 	}

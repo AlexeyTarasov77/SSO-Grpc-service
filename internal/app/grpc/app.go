@@ -9,19 +9,19 @@ import (
 )
 
 type App struct {
-	log *slog.Logger
+	log        *slog.Logger
 	GRPCServer *grpc.Server
-	Port string
+	Port       string
 }
 
-func New(log *slog.Logger, port string, auth authgrpc.Auth) *App {
+func New(log *slog.Logger, port string, auth authgrpc.AuthService) *App {
 	gRPCServer := grpc.NewServer()
 	authgrpc.Register(gRPCServer, auth, log)
 	return &App{log, gRPCServer, port}
 }
 
 func (app *App) Run() {
-	listener, err := net.Listen("tcp", ":" + app.Port)
+	listener, err := net.Listen("tcp", ":"+app.Port)
 	if err != nil {
 		app.log.Error("Failed to listen", "error", err, "port", app.Port)
 		panic(err)

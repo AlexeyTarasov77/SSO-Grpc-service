@@ -10,6 +10,7 @@ import (
 	"sso.service/internal/domain/models"
 	"sso.service/internal/services/auth"
 	"sso.service/internal/storage"
+	"sso.service/internal/storage/postgres"
 )
 
 type AppModel struct {
@@ -27,8 +28,8 @@ func (a *AppModel) Create(ctx context.Context, app *models.App) (int64, error) {
 	).Scan(&appID)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return 0, storage.ErrAppAlreadyExists
+		if errors.As(err, &pgErr) && pgErr.Code == postgres.UniqueViolationErrCode {
+			return 0, storage.ErrRecordAlreadyExists
 		}
 		return 0, err
 	}
@@ -45,7 +46,7 @@ func (a *AppModel) Get(ctx context.Context, params auth.GetAppParams) (*models.A
 	app, err := pgx.CollectOneRow(row, pgx.RowToStructByName[models.App])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, storage.ErrAppNotFound
+			return nil, storage.ErrRecordNotFound
 		}
 		return nil, err
 	}
