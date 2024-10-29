@@ -11,7 +11,7 @@ db:
   name: sso
   load_timeout: 5s
 server:
-  port: 8080
-  host: localhost
+  port: 3000
+  host: 0.0.0.0
   timeout: 5s
   

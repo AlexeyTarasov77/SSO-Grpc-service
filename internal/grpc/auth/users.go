@@ -68,15 +68,19 @@ func (s *serverAPI) Register(
 	}
 	data, err := s.auth.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetEmail(), req.GetAppId())
 	if err != nil {
-		if errors.Is(err, auth.ErrUserAlreadyExists) {
+		switch {
+		case errors.Is(err, auth.ErrUserAlreadyExists):
 			errorMsg, err := json.Marshal(map[string]string{"email": err.Error()})
 			if err != nil {
 				s.log.Error("Failed to marshal error message", "error", err)
 				return nil, status.Error(codes.Internal, "failed to register")
 			}
 			return nil, status.Error(codes.AlreadyExists, string(errorMsg))
+		case errors.Is(err, auth.ErrAppNotFound):
+			return nil, status.Error(codes.NotFound, err.Error())
+		default:
+			return nil, status.Error(codes.Internal, "failed to register")
 		}
-		return nil, status.Error(codes.Internal, "failed to register")
 	}
 	return &ssov1.RegisterResponse{
 		UserId:          data.UserID,

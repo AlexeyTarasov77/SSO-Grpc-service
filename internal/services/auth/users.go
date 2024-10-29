@@ -33,7 +33,9 @@ func (a *Auth) Login(
 ) (*models.AuthTokens, error) {
 	const op = "auth.Login"
 	log := a.log.With("operation", op)
-	user, err := a.usersModel.Get(ctx, GetUserParams{Email: email})
+	isActive := new(bool)
+	*isActive = true
+	user, err := a.usersModel.Get(ctx, GetUserParams{Email: email, IsActive: isActive})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("User not found", "email", email)

@@ -33,3 +33,5 @@ type serverAPI struct {
 func Register(gRPC *grpc.Server, auth AuthService, log *slog.Logger) {
 	ssov1.RegisterAuthServer(gRPC, &serverAPI{auth: auth, log: log})
 }
+
+// TODO: made a health check endpoint
