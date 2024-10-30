@@ -1,4 +1,4 @@
-package handlers
+package auth_test
 
 import (
 	"testing"
@@ -25,7 +25,7 @@ func TestRegister(t *testing.T) {
 		name string
 		req  *ssov1.RegisterRequest
 		expectedErr bool
-		expectedErrMsg string
+		expectedErrMsgContains string
 		expectedCode codes.Code
 	} {
 		{
@@ -45,7 +45,7 @@ func TestRegister(t *testing.T) {
 				Email:    validEmail,
 			},
 			expectedErr: true,
-			expectedErrMsg: "user already exists",
+			expectedErrMsgContains: "already exists",
 			expectedCode: codes.AlreadyExists,
 		},
 		{
@@ -56,7 +56,7 @@ func TestRegister(t *testing.T) {
 				Email:    "invalid email",
 			},
 			expectedErr: true,
-			expectedErrMsg: "email",
+			expectedErrMsgContains: "email",
 			expectedCode: codes.InvalidArgument,
 		},
 		{
@@ -67,7 +67,7 @@ func TestRegister(t *testing.T) {
 				Email:    validEmail,
 			},
 			expectedErr: true,
-			expectedErrMsg: "password",
+			expectedErrMsgContains: "password",
 			expectedCode: codes.InvalidArgument,
 		},
 		{
@@ -78,25 +78,27 @@ func TestRegister(t *testing.T) {
 				Email:    validEmail,
 			},
 			expectedErr: true,
-			expectedErrMsg: "username",
+			expectedErrMsgContains: "username",
 			expectedCode: codes.InvalidArgument,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			respReg, err := st.AuthClient.Register(ctx, tc.req)
-			assert.Equal(t, tc.expectedCode, status.Code(err))
+			respStatus := status.Code(err)
+			t.Log("Actual code", respStatus, "Expected", tc.expectedCode, "req", tc.req)
+			assert.Equal(t, tc.expectedCode, respStatus)
 			if tc.expectedErr {
 				assert.Error(t, err)
 				assert.Empty(t, respReg.GetUserId())
-				if tc.expectedErrMsg != "" {
-					assert.ErrorContains(t, err, tc.expectedErrMsg)
+				if tc.expectedErrMsgContains != "" {
+					assert.ErrorContains(t, err, tc.expectedErrMsgContains)
 				}
 				return
 			}
 			require.NoError(t, err)
 			assert.NotEmpty(t, respReg.GetUserId())
-			storage := st.NewTestStorage(t)
+			storage := st.NewTestStorage()
 			modelsObj := dbModels.New(storage.DB)
 			user, err := modelsObj.User.Get(ctx, auth.GetUserParams{Email: validEmail})
 			require.NoError(t, err)
@@ -104,7 +106,7 @@ func TestRegister(t *testing.T) {
 			assert.Equal(t, validEmail, user.Email)
 			assert.Equal(t, validUsername, user.Username)
 			assert.Equal(t, models.RoleUser, user.Role)
-			assert.True(t, user.IsActive)
+			assert.False(t, user.IsActive)
 		})
 	}
 }

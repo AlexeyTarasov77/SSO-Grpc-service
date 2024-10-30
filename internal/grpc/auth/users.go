@@ -25,7 +25,7 @@ func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.
 	tokens, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword(), req.GetAppId())
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			return nil, status.Error(codes.InvalidArgument, "invalid credentials")
+			return nil, status.Error(codes.Unauthenticated, "invalid credentials")
 		}
 		return nil, status.Error(codes.Internal, "failed to login")
 	}
@@ -38,7 +38,7 @@ func (s *serverAPI) IsAdmin(
 	ctx context.Context,
 	req *ssov1.IsAdminRequest,
 ) (*ssov1.IsAdminResponse, error) {
-	validationRules := map[string]string{"userId": "required,gt=0"}
+	validationRules := map[string]string{"UserId": "required,gt=0"}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}

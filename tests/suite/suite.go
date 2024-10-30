@@ -23,7 +23,7 @@ type Suite struct {
 func New(t *testing.T) (context.Context, *Suite) {
 	t.Helper()
 
-	cfg := config.Load("../../config/local-tests.yaml")
+	cfg := config.Load("../../../config/local-tests.yaml")
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Server.Timeout)
 	t.Cleanup(cancel)
 	cc, err := grpc.NewClient(
@@ -40,8 +40,8 @@ func New(t *testing.T) (context.Context, *Suite) {
 	}
 }
 
-func (st *Suite) NewTestStorage(t *testing.T) *postgres.Storage {
-	t.Helper()
+func (st *Suite) NewTestStorage() *postgres.Storage {
+	st.T.Helper()
 	storagePath := fmt.Sprintf(
 		"postgresql://%s:%s@%s:%s/%s?sslmode=disable",
 		st.Cfg.DB.User, st.Cfg.DB.Password, st.Cfg.DB.Host, st.Cfg.DB.Port, st.Cfg.DB.Name,
@@ -49,8 +49,8 @@ func (st *Suite) NewTestStorage(t *testing.T) *postgres.Storage {
 	ctx, cancel := context.WithTimeout(context.Background(), st.Cfg.DB.LoadTimeout)
 	defer cancel()
 	storage, err := postgres.New(ctx, storagePath)
-	require.NoError(t, err)
-	t.Cleanup(func() {
+	require.NoError(st.T, err)
+	st.T.Cleanup(func() {
 		storage.DB.Close()
 	})
 	return storage

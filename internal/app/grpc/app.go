@@ -13,7 +13,7 @@ import (
 type App struct {
 	log        *slog.Logger
 	GRPCServer *grpc.Server
-	HealthChecker *health.Server
+	healthChecker *health.Server
 	Host       string
 	Port       string
 }
@@ -36,16 +36,16 @@ func (app *App) Run() {
 		panic(err)
 	}
 	app.log.Info("Starting gRPC server", "listener", listener.Addr(), "address", serverAddr)
-	app.HealthChecker.SetServingStatus(system, healthgrpc.HealthCheckResponse_SERVING)
+	app.healthChecker.SetServingStatus(system, healthgrpc.HealthCheckResponse_SERVING)
 	if err := app.GRPCServer.Serve(listener); err != nil {
 		app.log.Error("Failed to serve gRPC server", "error", err)
-		app.HealthChecker.SetServingStatus(system, healthgrpc.HealthCheckResponse_NOT_SERVING)
+		app.healthChecker.SetServingStatus(system, healthgrpc.HealthCheckResponse_NOT_SERVING)
 		panic(err)
 	}
 }
 
 func (app *App) Stop() {
 	app.log.Info("Stopping gRPC server")
-	app.HealthChecker.SetServingStatus(system, healthgrpc.HealthCheckResponse_NOT_SERVING)
+	app.healthChecker.SetServingStatus(system, healthgrpc.HealthCheckResponse_NOT_SERVING)
 	app.GRPCServer.GracefulStop()
 }

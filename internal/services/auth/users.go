@@ -38,7 +38,7 @@ func (a *Auth) Login(
 	user, err := a.usersModel.Get(ctx, GetUserParams{Email: email, IsActive: isActive})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
-			log.Warn("User not found", "email", email)
+			log.Warn("Active user not found", "email", email)
 			return nil, ErrInvalidCredentials
 		}
 		log.Error("Error getting user", "msg", err.Error())

@@ -19,13 +19,18 @@ type UserModel struct {
 }
 
 func (u *UserModel) Create(ctx context.Context, user *models.User) (int64, error) {
+	if (user.Role == "") {
+		user.Role = models.DefaultUserRole
+	}
 	var userID int64
 	err := u.DB.QueryRow(
 		ctx,
-		"INSERT INTO users (username, password, email) VALUES ($1, $2, $3) RETURNING id",
+		"INSERT INTO users (username, password, email, is_active, role) VALUES ($1, $2, $3, $4, $5) RETURNING id",
 		user.Username,
 		user.Password.Hash,
 		user.Email,
+		user.IsActive,
+		user.Role,
 	).Scan(&userID)
 	if err != nil {
 		var pgErr *pgconn.PgError

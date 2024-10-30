@@ -20,6 +20,8 @@ const (
 	RoleUser      Role = "user"
 	RoleModerator Role = "moderator"
 	RoleAdmin     Role = "admin"
+
+	DefaultUserRole Role = RoleUser
 )
 
 type User struct {

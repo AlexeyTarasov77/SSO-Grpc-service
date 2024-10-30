@@ -1,11 +1,11 @@
-package handlers
+package auth_test
 
 import "github.com/brianvoe/gofakeit/v7"
 
 const (
 	appID = 1
 	emptyAppID = 0
-    appSecret = "test-secret"
+    appSecret = "test_secret"
 	defaultPasswordLength = 10
 )
 
