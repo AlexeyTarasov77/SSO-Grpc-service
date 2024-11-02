@@ -7,6 +7,7 @@ import (
 
 const ( 
 	UniqueViolationErrCode = "23505"
+	ForeignKeyViolationErrCode = "23503"
 )
 
 type Storage struct {

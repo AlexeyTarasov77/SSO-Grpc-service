@@ -44,3 +44,22 @@ func (s *serverAPI) CheckPermission(ctx context.Context, req *ssov1.CheckPermiss
 	}
 	return &ssov1.CheckPermissionResponse{HasPermission: hasPermission}, nil
 }
+
+func (s *serverAPI) GrantPermissions(ctx context.Context, req *ssov1.GrantPermissionsRequest) (*ssov1.GrantPermissionsResponse, error) {
+	validationRules := map[string]string{"userId": "required,gt=0", "permissionId": "§required,gt=0"}
+	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
+		return nil, status.Error(codes.InvalidArgument, errs)
+	}
+	// TODO: Возможно так же стоит отлавливать случай, когда RowsAffected != количевству переданных пермишином, следовательно не все из переданных пермишинов существуют
+	err := s.auth.GrantPermissions(ctx, req.GetUserId(), req.GetPermissionCodes()...)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrPermissionAlreadyExists):
+			return nil, status.Error(codes.AlreadyExists, "User already has on or more of provided permissions")
+		case errors.Is(err, auth.ErrUserNotFound):
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, "failed to grant permission")
+	}
+	return &ssov1.GrantPermissionsResponse{Granted: true}, nil
+}

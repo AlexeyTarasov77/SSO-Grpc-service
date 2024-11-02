@@ -34,6 +34,27 @@ func (p *PermissionModel) Create(ctx context.Context, code string) (*models.Perm
     return &permission, nil
 }
 
+func (p *PermissionModel) AddForUser(ctx context.Context, userID int64, codes ...string) error {
+	const query = `
+		INSERT INTO users_permissions 
+		SELECT $1, p.id FROM permissions p WHERE p.code = ANY($2)`
+	// pgtype.FlatArray[string](codes)
+	args := []any{userID, codes}
+	_, err := p.DB.Exec(ctx, query, args...) 
+	if err != nil {
+		var pgxErr *pgconn.PgError
+		if errors.As(err, &pgxErr) {
+			if pgxErr.Code == postgres.UniqueViolationErrCode {
+                return storage.ErrRecordAlreadyExists
+			} else if pgxErr.Code == postgres.ForeignKeyViolationErrCode {
+				return storage.ErrRecordNotFound
+			}
+		}
+        return err
+	}
+	return nil
+}
+
 func (p *PermissionModel) Get(ctx context.Context, params auth.PermissionGetParams) (*models.Permission, error) {
 	var permission models.Permission
 	const query = `
@@ -65,29 +86,3 @@ func (p *PermissionModel) ExistsForUser(ctx context.Context, userID int64, code 
 	}
 	return exists, nil
 }
-
-
-// func (p *PermissionModel) GetAllForUser(ctx context.Context, userID int64) (models.Permissions, error) {
-// 	const query = `
-// 		SELECT p.id, p.code FROM permissions p 
-// 		JOIN users_permissions up ON p.id=up.permission_id
-// 		JOIN users u ON u.id=up.user_id
-// 		WHERE u.id=$1
-// 	`
-// 	args := []any{userID}
-// 	rows, err := p.DB.Query(ctx, query, args...)
-// 	if err != nil {
-//         return nil, err
-//     }
-// 	defer rows.Close()
-// 	permissions := make(models.Permissions, 0, rows.CommandTag().RowsAffected())
-// 	for rows.Next() {
-// 		var perm models.Permission
-// 		err = rows.Scan(&perm.ID, &perm.Code)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		permissions = append(permissions, perm)
-// 	}
-// 	return permissions, nil
-// }

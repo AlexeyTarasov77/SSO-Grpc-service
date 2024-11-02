@@ -22,6 +22,7 @@ type AuthService interface {
 	VerifyToken(ctx context.Context, appID int32, token string) error
 	CreatePermission(ctx context.Context, code string) (*models.Permission, error)
 	CheckPermission(ctx context.Context, userID int64, permission string) (bool, error)
+	GrantPermissions(ctx context.Context, userID int64, permissionCodes ...string) error
 }
 
 type serverAPI struct {

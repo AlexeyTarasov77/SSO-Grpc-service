@@ -17,6 +17,7 @@ type permissionsModel interface {
 	Create(ctx context.Context, code string) (*models.Permission, error)
 	ExistsForUser(ctx context.Context, userID int64, code string) (bool, error)
 	Get(ctx context.Context, params PermissionGetParams) (*models.Permission, error)
+	AddForUser(ctx context.Context, userID int64, codes ...string) error
 }
 
 func (a *Auth) CreatePermission(ctx context.Context, code string) (*models.Permission, error) {
@@ -61,4 +62,22 @@ func (a *Auth) CheckPermission(ctx context.Context, userID int64, permission str
 		return false, err
 	}
 	return exists, nil
+}
+
+func (a *Auth) GrantPermissions(ctx context.Context, userID int64, permissionCodes ...string) error {
+	const op = "auth.GrantPermission"
+	log := a.log.With("operation", op, "user_id", userID, "permissionCodes", permissionCodes)
+	err := a.permissionsModel.AddForUser(ctx, userID, permissionCodes...)
+	if err != nil {
+		if errors.Is(err, storage.ErrRecordAlreadyExists) {
+			log.Warn("Some of the permissions already assigned to user")
+			return ErrPermissionAlreadyExists
+		} else if errors.Is(err, storage.ErrRecordNotFound) {
+			log.Warn("User not found", "user_id", userID)
+			return ErrUserNotFound
+		}
+        log.Error("Failed to grant permission", "msg", err.Error())
+        return err
+    }
+	return nil
 }
