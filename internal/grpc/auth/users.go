@@ -89,7 +89,7 @@ func (s *serverAPI) Register(
 }
 
 func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
-	validationRules := map[string]string{"activation_token": "required"}
+	validationRules := map[string]string{"ActivationToken": "required"}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
@@ -123,9 +123,9 @@ func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserReq
 
 func (s *serverAPI) GetUser(ctx context.Context, req *ssov1.GetUserRequest) (*ssov1.GetUserResponse, error) {
 	validationRules := map[string]string{
-		"id":        "omitempty,gt=0",
-		"email":     "omitempty,email",
-		"is_active": "omitempty,boolean",
+		"Id":        "omitempty,gt=0",
+		"Email":     "omitempty,email",
+		"IsActive": "omitempty,boolean",
 	}
 	if req.GetId() == 0 && req.GetEmail() == "" {
 		return nil, status.Error(codes.InvalidArgument, "either id or email must be provided")
@@ -133,12 +133,12 @@ func (s *serverAPI) GetUser(ctx context.Context, req *ssov1.GetUserRequest) (*ss
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
-	s.log.Debug("Get user", "user_id", req.GetId(), "email", req.GetEmail(), "is_active", req.GetIsActive())
-	is_active := req.GetIsActive()
+	isActive := req.GetIsActive()
+	s.log.Debug("Get user", "user_id", req.GetId(), "email", req.GetEmail(), "is_active", isActive)
 	user, err := s.auth.GetUser(ctx, auth.GetUserParams{
 		ID:       req.GetId(),
 		Email:    req.GetEmail(),
-		IsActive: &is_active,
+		IsActive: &isActive,
 	})
 	if err != nil {
 		if errors.Is(err, auth.ErrUserNotFound) {

@@ -7,6 +7,7 @@ const (
 	emptyAppID = 0
     appSecret = "test_secret"
 	defaultPasswordLength = 10
+	notFoundUserID = int64(999999999)
 )
 
 func FakePassword() string {

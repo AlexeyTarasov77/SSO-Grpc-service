@@ -37,7 +37,6 @@ func TestIsAdmin(t *testing.T) {
 	userNotAdmin.Password.Set(FakePassword())
 	notAdminUserID, err := userModel.Create(ctx, &userNotAdmin)
 	require.NoError(t, err)
-	notFoundUserID := int64(999999999)
 	testCases := []struct {
 		name string
 		req  *ssov1.IsAdminRequest

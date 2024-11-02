@@ -96,10 +96,6 @@ func Validate(obj any, rules map[string]string) string {
 	validate.RegisterStructValidationMapRules(rules, newObj)
 	if err := validate.Struct(obj); err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			// fieldErrors = append(fieldErrors, fmt.Sprintf(
-			// 	"%s: %s",
-			// 	getFieldName(obj, e.StructField()), GetErrorMsgForField(obj, e),
-			// ))
 			fieldErrors[getFieldName(obj, e.StructField())] = GetErrorMsgForField(obj, e)
 		}
 	}
