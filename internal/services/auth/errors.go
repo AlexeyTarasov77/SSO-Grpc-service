@@ -11,4 +11,5 @@ var (
 	ErrPermissionNotFound = errors.New("permission not found")
 	ErrUserAlreadyActivated = errors.New("user already activated")
 	ErrInvalidToken = errors.New("invalid or expired token")
+	ErrAppIdsMismatch = errors.New("app ids mismatch")
 )

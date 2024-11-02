@@ -89,7 +89,7 @@ func (s *serverAPI) Register(
 }
 
 func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
-	validationRules := map[string]string{"ActivationToken": "required"}
+	validationRules := map[string]string{"ActivationToken": "required", "AppId": "required,gt=0"}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
@@ -97,8 +97,10 @@ func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserReq
 	user, err := s.auth.ActivateUser(ctx, req.GetActivationToken(), req.GetAppId())
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrUserNotFound):
+		case errors.Is(err, auth.ErrAppNotFound):
 			return nil, status.Error(codes.NotFound, err.Error())
+		case errors.Is(err, auth.ErrAppIdsMismatch):
+			return nil, status.Error(codes.InvalidArgument, "Mismatch between app id provided in request and token")
 		case errors.Is(err, auth.ErrUserAlreadyActivated):
 			return nil, status.Error(codes.AlreadyExists, err.Error())
 		case errors.Is(err, auth.ErrInvalidToken):

@@ -48,6 +48,10 @@ func (a *Auth) NewActivationToken(ctx context.Context, email string, appID int32
 	email = strings.Trim(email, " ")
 	user, err := a.GetUser(ctx, GetUserParams{Email: email})
 	if err != nil {
+		if errors.Is(err, storage.ErrRecordNotFound) {
+            log.Warn("User not found", "email", email)
+            return "", ErrUserNotFound
+        }
 		return "", err
 	}
 	if user.IsActive {

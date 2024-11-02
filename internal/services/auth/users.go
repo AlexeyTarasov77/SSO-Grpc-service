@@ -161,7 +161,7 @@ func (a *Auth) GetUser(ctx context.Context, params GetUserParams) (*models.User,
 
 func (a *Auth) ActivateUser(ctx context.Context, token string, appID int32) (*models.User, error) {
 	const op = "auth.ActivateUser"
-	log := a.log.With("operation", op, "token", token)
+	log := a.log.With("operation", op, "token", token, "appID", appID)
 	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
@@ -184,10 +184,19 @@ func (a *Auth) ActivateUser(ctx context.Context, token string, appID int32) (*mo
 		}
 	}
 	userID := int64(claims["uid"].(float64))
+	appIDFromToken := int32(claims["app_id"].(float64))
+	if userID == 0 || appIDFromToken == 0 {
+        log.Warn("Invalid activation token (missing uid or app_id)", "token", token)
+        return nil, ErrInvalidToken
+    }
+	if appIDFromToken != appID {
+        log.Warn("app_id mismatch", "appIDFromToken", appIDFromToken)
+        return nil, ErrAppIdsMismatch
+    }
 	user, err := a.usersModel.Get(ctx, GetUserParams{ID: userID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
-			log.Warn("Invalid or expired activation token", "token", token)
+			log.Warn("Invalid activation token (uid of unknown user)", "token", token)
 			return nil, ErrInvalidToken
 		}
 		log.Error("Error getting user for token", "msg", err.Error())
