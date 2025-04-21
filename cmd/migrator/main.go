@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -85,7 +86,7 @@ func migrateDown(steps string, m *migrate.Migrate) (migrated bool) {
 		if err != nil {
 			panic(err)
 		}
-		if err := m.Steps(stepsInt); err != nil {
+		if err := m.Steps(-stepsInt); err != nil {
 			if errors.Is(err, migrate.ErrNoChange) {
 				fmt.Println("No migrations to apply")
 				return
@@ -98,25 +99,30 @@ func migrateDown(steps string, m *migrate.Migrate) (migrated bool) {
 		migrated = true
 		return
 	}
+	// Ask confirmation to downgrade all migrations if steps not provided
 	fmt.Print("Are you sure that you want to downgrade all migrations? (yes/no) [no] ")
-	var confirmed string
-	if _, err := fmt.Scanln(&confirmed); err != nil {
+	confirmed, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil {
 		panic(err)
 	}
-	if strings.ToLower(confirmed) == "no" {
-		return
-	}
-	if err := m.Down(); err != nil {
-		if errors.Is(err, migrate.ErrNoChange) {
-			fmt.Println("No migrations to apply")
+	switch strings.ToLower(confirmed) {
+	case "\n", "no":
+		fmt.Println("Aborting...")
+	case "yes":
+		if err := m.Down(); err != nil {
+			if errors.Is(err, migrate.ErrNoChange) {
+				fmt.Println("No migrations to apply")
+				return
+			}
+			if fixed := checkAndFixDirty(err, m); !fixed {
+				panic(err)
+			}
 			return
 		}
-		if fixed := checkAndFixDirty(err, m); !fixed {
-			panic(err)
-		}
-		return
+		migrated = true
+	default:
+		panic(fmt.Sprintf("Invalid value: %s. Choices are: %s", confirmed, "yes/no"))
 	}
-	migrated = true
 	return
 }
 
