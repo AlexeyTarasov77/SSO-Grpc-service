@@ -23,6 +23,6 @@ services:
     container_name: sso_db
     image: postgres:15-alpine
     volumes:
-      - sso_postgres_data:/var/lib/postgresql/data
+      - sso_postgres_data:$PGDATA
     env_file:
       - .env.postgres

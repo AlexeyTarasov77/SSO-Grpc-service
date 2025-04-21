@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"context"
 	"testing"
 
 	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
@@ -8,65 +9,65 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sso.service/internal/domain/models"
-	dbModels "sso.service/internal/storage/postgres/models"
+	"sso.service/internal/entity"
+	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
 )
 
 func TestGetUser(t *testing.T) {
 	t.Parallel()
-	ctx, st := suite.New(t)
+	st := suite.New(t)
 	storage := st.NewTestStorage()
-	userModel := dbModels.New(storage.DB).User
-	validUser := models.User{
+	userModel := models.New(storage.DB).User
+	validUser := entity.User{
 		Username: gofakeit.Username(),
-        Email:    gofakeit.Email(),
-        IsActive: true,
+		Email:    gofakeit.Email(),
+		IsActive: true,
 	}
 	validUser.Password.Set(FakePassword())
-	validUserID, err := userModel.Create(ctx, &validUser)
+	validUserID, err := userModel.Create(context.Background(), &validUser)
 	validUser.ID = validUserID
 	require.NoError(t, err)
 	testCases := []struct {
-		name string
-		req  *ssov1.GetUserRequest
+		name         string
+		req          *ssov1.GetUserRequest
 		expectedCode codes.Code
 		expectedUser *ssov1.User
-	} {
+	}{
 		{
 			name: "valid by id",
 			req: &ssov1.GetUserRequest{
-				Id: validUserID,
+				Id:       validUserID,
 				IsActive: true,
 			},
 			expectedCode: codes.OK,
 			expectedUser: &ssov1.User{
-				Id:        validUser.ID,
-				Username:  validUser.Username,
-				Email:     validUser.Email,
-				Role:      validUser.Role,
-				IsActive:  validUser.IsActive,
+				Id:       validUser.ID,
+				Username: validUser.Username,
+				Email:    validUser.Email,
+				Role:     validUser.Role,
+				IsActive: validUser.IsActive,
 			},
 		},
 		{
 			name: "valid by email",
 			req: &ssov1.GetUserRequest{
-				Email: validUser.Email,
+				Email:    validUser.Email,
 				IsActive: true,
 			},
 			expectedCode: codes.OK,
 			expectedUser: &ssov1.User{
-				Id:        validUser.ID,
-				Username:  validUser.Username,
-				Email:     validUser.Email,
-				Role:      validUser.Role,
-				IsActive:  validUser.IsActive,
+				Id:       validUser.ID,
+				Username: validUser.Username,
+				Email:    validUser.Email,
+				Role:     validUser.Role,
+				IsActive: validUser.IsActive,
 			},
 		},
 		{
 			name: "not found by id",
 			req: &ssov1.GetUserRequest{
-				Id: notFoundUserID,
+				Id:       notFoundUserID,
 				IsActive: true,
 			},
 			expectedCode: codes.NotFound,
@@ -74,7 +75,7 @@ func TestGetUser(t *testing.T) {
 		{
 			name: "not found by email",
 			req: &ssov1.GetUserRequest{
-				Email: gofakeit.Email(),
+				Email:    gofakeit.Email(),
 				IsActive: true,
 			},
 			expectedCode: codes.NotFound,
@@ -87,7 +88,7 @@ func TestGetUser(t *testing.T) {
 			expectedCode: codes.NotFound,
 		},
 		{
-			name: "invalid id", 
+			name: "invalid id",
 			req: &ssov1.GetUserRequest{
 				Id: -1,
 			},
@@ -104,11 +105,11 @@ func TestGetUser(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			resp, err := st.AuthClient.GetUser(ctx, tc.req)
+			resp, err := st.AuthClient.GetUser(context.Background(), tc.req)
 			respStatus := status.Code(err)
-			t.Log("Actual code", respStatus, "Expected", tc.expectedCode,)
+			t.Log("Actual code", respStatus, "Expected", tc.expectedCode)
 			require.Equal(t, tc.expectedCode, respStatus)
-			if (resp.GetUser() != nil) {
+			if resp.GetUser() != nil {
 				t.Log("Actual user", resp.GetUser(), "Expected", tc.expectedUser)
 				require.Equal(t, tc.expectedUser.Id, resp.GetUser().Id)
 				require.Equal(t, tc.expectedUser.Username, resp.GetUser().Username)
@@ -119,3 +120,4 @@ func TestGetUser(t *testing.T) {
 		})
 	}
 }
+

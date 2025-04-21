@@ -1,1 +1,1 @@
-ALTER TABLE apps DROP COLUMN description TEXT
+ALTER TABLE apps DROP COLUMN description TEXT;

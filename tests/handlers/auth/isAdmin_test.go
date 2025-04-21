@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"context"
 	"testing"
 
 	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
@@ -9,46 +10,46 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sso.service/internal/domain/models"
-	dbModels "sso.service/internal/storage/postgres/models"
+	"sso.service/internal/entity"
+	dbentity "sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
 )
 
 func TestIsAdmin(t *testing.T) {
 	t.Parallel()
-	ctx, st := suite.New(t)
+	st := suite.New(t)
 	storage := st.NewTestStorage()
-	userModel := dbModels.New(storage.DB).User
-	userAdmin := models.User{
+	userModel := dbentity.New(storage.DB).User
+	userAdmin := entity.User{
 		Username: gofakeit.Username(),
 		Email:    gofakeit.Email(),
-        Role:     models.RoleAdmin,
-        IsActive: true,
+		Role:     entity.RoleAdmin,
+		IsActive: true,
 	}
 	userAdmin.Password.Set(FakePassword())
-	validUserID, err := userModel.Create(ctx, &userAdmin)
+	validUserID, err := userModel.Create(context.Background(), &userAdmin)
 	require.NoError(t, err)
-	userNotAdmin := models.User{
+	userNotAdmin := entity.User{
 		Username: gofakeit.Username(),
 		Email:    gofakeit.Email(),
-		Role:     models.RoleUser,
+		Role:     entity.RoleUser,
 		IsActive: true,
 	}
 	userNotAdmin.Password.Set(FakePassword())
-	notAdminUserID, err := userModel.Create(ctx, &userNotAdmin)
+	notAdminUserID, err := userModel.Create(context.Background(), &userNotAdmin)
 	require.NoError(t, err)
 	testCases := []struct {
-		name string
-		req  *ssov1.IsAdminRequest
-		expectedCode codes.Code
+		name            string
+		req             *ssov1.IsAdminRequest
+		expectedCode    codes.Code
 		expectedIsAdmin bool
-	} {
+	}{
 		{
 			name: "valid",
 			req: &ssov1.IsAdminRequest{
 				UserId: validUserID,
 			},
-			expectedCode: codes.OK,
+			expectedCode:    codes.OK,
 			expectedIsAdmin: true,
 		},
 		{
@@ -60,10 +61,10 @@ func TestIsAdmin(t *testing.T) {
 		},
 		{
 			name: "not admin",
-            req: &ssov1.IsAdminRequest{
-                UserId: notAdminUserID,
-            },
-            expectedCode: codes.OK,
+			req: &ssov1.IsAdminRequest{
+				UserId: notAdminUserID,
+			},
+			expectedCode:    codes.OK,
 			expectedIsAdmin: false,
 		},
 		{
@@ -77,15 +78,16 @@ func TestIsAdmin(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			resp, err := st.AuthClient.IsAdmin(ctx, tc.req)
+			resp, err := st.AuthClient.IsAdmin(context.Background(), tc.req)
 			respStatus := status.Code(err)
 			t.Log("Actual code", respStatus, "Expected", tc.expectedCode, "userId", tc.req.GetUserId())
 			assert.Equal(t, tc.expectedCode, respStatus)
 			if tc.expectedCode == codes.OK {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
-                assert.Equal(t, tc.expectedIsAdmin, resp.GetIsAdmin())
+				assert.Equal(t, tc.expectedIsAdmin, resp.GetIsAdmin())
 			}
 		})
 	}
 }
+

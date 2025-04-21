@@ -1,9 +1,9 @@
 package suite
 
 import (
-	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"github.com/stretchr/testify/require"
@@ -16,42 +16,37 @@ import (
 
 type Suite struct {
 	*testing.T
-	Cfg *config.Config
+	Cfg        *config.Config
 	AuthClient ssov1.AuthClient
 }
 
-func New(t *testing.T) (context.Context, *Suite) {
+func New(t *testing.T) *Suite {
 	t.Helper()
 
-	cfg := config.Load("../../../config/local-tests.yaml")
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Server.Timeout)
-	t.Cleanup(cancel)
-	cc, err := grpc.NewClient(
+	cfg := config.MustLoad("../../../config/local-tests.yaml")
+	conn, err := grpc.NewClient(
 		net.JoinHostPort(cfg.Server.Host, cfg.Server.Port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return ctx, &Suite{
-		T: t,
-		Cfg: cfg,
-		AuthClient: ssov1.NewAuthClient(cc),
+	return &Suite{
+		T:          t,
+		Cfg:        cfg,
+		AuthClient: ssov1.NewAuthClient(conn),
 	}
 }
 
-func (st *Suite) NewTestStorage() *postgres.Storage {
-	st.T.Helper()
-	storagePath := fmt.Sprintf(
-		"postgresql://%s:%s@%s:%s/%s?sslmode=disable",
-		st.Cfg.DB.User, st.Cfg.DB.Password, st.Cfg.DB.Host, st.Cfg.DB.Port, st.Cfg.DB.Name,
-	)
-	ctx, cancel := context.WithTimeout(context.Background(), st.Cfg.DB.LoadTimeout)
+func (self *Suite) NewTestStorage() *postgres.Storage {
+	self.T.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	storage, err := postgres.New(ctx, storagePath)
-	require.NoError(st.T, err)
-	st.T.Cleanup(func() {
+	storage, err := postgres.New(ctx, self.Cfg.DB.Dsn)
+	require.NoError(self.T, err)
+	self.T.Cleanup(func() {
 		storage.DB.Close()
 	})
 	return storage
 }
+

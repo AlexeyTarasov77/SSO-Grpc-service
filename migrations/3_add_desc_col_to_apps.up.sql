@@ -1,1 +1,1 @@
-ALTER TABLE apps ADD COLUMN description TEXT
+ALTER TABLE apps ADD COLUMN description TEXT;

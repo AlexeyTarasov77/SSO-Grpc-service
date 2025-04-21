@@ -1,4 +1,4 @@
-package auth
+package v1
 
 import (
 	"context"
@@ -8,11 +8,11 @@ import (
 	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sso.service/internal/lib/validator"
 	"sso.service/internal/services/auth"
+	"sso.service/pkg/validator"
 )
 
-func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.LoginResponse, error) {
+func (s *authServer) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.LoginResponse, error) {
 	validationRules := map[string]string{
 		"Email":    "required,email",
 		"Password": "required,min=8",
@@ -22,7 +22,7 @@ func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
 
-	tokens, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword(), req.GetAppId())
+	tokens, err := s.service.Login(ctx, req.GetEmail(), req.GetPassword(), req.GetAppId())
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			return nil, status.Error(codes.Unauthenticated, "invalid credentials")
@@ -34,7 +34,7 @@ func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.
 		RefreshToken: tokens.RefreshToken,
 	}, nil
 }
-func (s *serverAPI) IsAdmin(
+func (s *authServer) IsAdmin(
 	ctx context.Context,
 	req *ssov1.IsAdminRequest,
 ) (*ssov1.IsAdminResponse, error) {
@@ -42,7 +42,7 @@ func (s *serverAPI) IsAdmin(
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
-	isAdmin, err := s.auth.IsAdmin(ctx, req.GetUserId())
+	isAdmin, err := s.service.IsAdmin(ctx, req.GetUserId())
 	if err != nil {
 		if errors.Is(err, auth.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -54,7 +54,7 @@ func (s *serverAPI) IsAdmin(
 	}, nil
 }
 
-func (s *serverAPI) Register(
+func (s *authServer) Register(
 	ctx context.Context,
 	req *ssov1.RegisterRequest,
 ) (*ssov1.RegisterResponse, error) {
@@ -62,11 +62,12 @@ func (s *serverAPI) Register(
 		"Username": "required",
 		"Password": "required,min=8",
 		"Email":    "required,email",
+		"AppId":    "required,gt=0",
 	}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
-	data, err := s.auth.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetEmail(), req.GetAppId())
+	data, err := s.service.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetEmail(), req.GetAppId())
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrUserAlreadyExists):
@@ -88,13 +89,13 @@ func (s *serverAPI) Register(
 	}, nil
 }
 
-func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
+func (s *authServer) ActivateUser(ctx context.Context, req *ssov1.ActivateUserRequest) (*ssov1.ActivateUserResponse, error) {
 	validationRules := map[string]string{"ActivationToken": "required", "AppId": "required,gt=0"}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		s.log.Debug("Validation errors at login", "errors", errs)
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
-	user, err := s.auth.ActivateUser(ctx, req.GetActivationToken(), req.GetAppId())
+	user, err := s.service.ActivateUser(ctx, req.GetActivationToken(), req.GetAppId())
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrAppNotFound):
@@ -122,11 +123,10 @@ func (s *serverAPI) ActivateUser(ctx context.Context, req *ssov1.ActivateUserReq
 	}, nil
 }
 
-
-func (s *serverAPI) GetUser(ctx context.Context, req *ssov1.GetUserRequest) (*ssov1.GetUserResponse, error) {
+func (s *authServer) GetUser(ctx context.Context, req *ssov1.GetUserRequest) (*ssov1.GetUserResponse, error) {
 	validationRules := map[string]string{
-		"Id":        "omitempty,gt=0",
-		"Email":     "omitempty,email",
+		"Id":       "omitempty,gt=0",
+		"Email":    "omitempty,email",
 		"IsActive": "omitempty,boolean",
 	}
 	if req.GetId() == 0 && req.GetEmail() == "" {
@@ -137,7 +137,7 @@ func (s *serverAPI) GetUser(ctx context.Context, req *ssov1.GetUserRequest) (*ss
 	}
 	isActive := req.GetIsActive()
 	s.log.Debug("Get user", "user_id", req.GetId(), "email", req.GetEmail(), "is_active", isActive)
-	user, err := s.auth.GetUser(ctx, auth.GetUserParams{
+	user, err := s.service.GetUser(ctx, auth.GetUserOptionsDTO{
 		ID:       req.GetId(),
 		Email:    req.GetEmail(),
 		IsActive: &isActive,
@@ -160,3 +160,4 @@ func (s *serverAPI) GetUser(ctx context.Context, req *ssov1.GetUserRequest) (*ss
 		},
 	}, nil
 }
+

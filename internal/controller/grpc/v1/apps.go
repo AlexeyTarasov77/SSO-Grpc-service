@@ -1,4 +1,4 @@
-package auth
+package v1
 
 import (
 	"context"
@@ -6,11 +6,11 @@ import (
 	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sso.service/internal/domain/models"
-	"sso.service/internal/lib/validator"
+	"sso.service/internal/entity"
+	"sso.service/pkg/validator"
 )
 
-func (s *serverAPI) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAppRequest) (*ssov1.GetOrCreateAppResponse, error) {
+func (s *authServer) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAppRequest) (*ssov1.GetOrCreateAppResponse, error) {
 	validationRules := map[string]string{
 		"Name":        "required,max=70",
 		"Description": "required,max=300",
@@ -20,7 +20,7 @@ func (s *serverAPI) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAp
 		return nil, status.Error(codes.InvalidArgument, errs)
 	}
 
-	data, err := s.auth.GetOrCreateApp(ctx, &models.App{
+	data, err := s.service.GetOrCreateApp(ctx, &entity.App{
 		Name:        req.GetName(),
 		Description: req.GetDescription(),
 		Secret:      req.GetSecret(),

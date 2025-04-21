@@ -6,15 +6,14 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	jwtLib "sso.service/internal/lib/jwt"
 	"sso.service/internal/storage"
+	jwtLib "sso.service/pkg/jwt"
 )
 
-
-func (a *Auth) RenewAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error) {
+func (a *AuthService) RenewAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error) {
 	const op = "auth.GetAccessToken"
 	log := a.log.With("operation", op)
-	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appId})
+	app, err := a.appsRepo.Get(ctx, GetAppOptionsDTO{AppID: appId})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("App not found", "app_id", appId)
@@ -30,7 +29,7 @@ func (a *Auth) RenewAccessToken(ctx context.Context, refreshToken string, appId 
 		return "", err
 	}
 	userID := int64(claims["uid"].(float64))
-	user, err := a.usersModel.Get(ctx, GetUserParams{ID: userID})
+	user, err := a.usersRepo.Get(ctx, GetUserOptionsDTO{ID: userID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("User not found", "user_id", userID)
@@ -42,23 +41,23 @@ func (a *Auth) RenewAccessToken(ctx context.Context, refreshToken string, appId 
 	return tokenProvider.NewToken(a.cfg.AccessTokenTTL, map[string]any{"uid": user.ID, "app_id": app.ID})
 }
 
-func (a *Auth) NewActivationToken(ctx context.Context, email string, appID int32) (string, error) {
+func (a *AuthService) NewActivationToken(ctx context.Context, email string, appID int32) (string, error) {
 	const op = "auth.NewActivationToken"
 	log := a.log.With("operation", op)
 	email = strings.Trim(email, " ")
-	user, err := a.GetUser(ctx, GetUserParams{Email: email})
+	user, err := a.GetUser(ctx, GetUserOptionsDTO{Email: email})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
-            log.Warn("User not found", "email", email)
-            return "", ErrUserNotFound
-        }
+			log.Warn("User not found", "email", email)
+			return "", ErrUserNotFound
+		}
 		return "", err
 	}
 	if user.IsActive {
 		log.Warn("User already active", "email", email)
 		return "", ErrUserAlreadyActivated
 	}
-	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appID})
+	app, err := a.appsRepo.Get(ctx, GetAppOptionsDTO{AppID: appID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("App not found", "app_id", appID)
@@ -76,10 +75,10 @@ func (a *Auth) NewActivationToken(ctx context.Context, email string, appID int32
 	return token, nil
 }
 
-func (a *Auth) VerifyToken(ctx context.Context, appID int32, token string) (error) {
+func (a *AuthService) VerifyToken(ctx context.Context, appID int32, token string) error {
 	const op = "auth.VerifyToken"
 	log := a.log.With("operation", op)
-	app, err := a.appsModel.Get(ctx, GetAppParams{AppID: appID})
+	app, err := a.appsRepo.Get(ctx, GetAppOptionsDTO{AppID: appID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("App not found", "app_id", appID)
@@ -102,3 +101,4 @@ func (a *Auth) VerifyToken(ctx context.Context, appID int32, token string) (erro
 	}
 	return nil
 }
+

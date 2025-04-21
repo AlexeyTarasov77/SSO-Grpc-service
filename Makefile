@@ -1,6 +1,8 @@
+MODE ?= local
+.PHONY:
 startdb:
-	docker run --rm --name sso-postgres -v sso_postgres_data:/var/lib/postgresql/data -d -p 5432:5432 \
-	--env-file .env postgres:15-alpine
+	docker run --rm --name sso-postgres -v sso_postgres_data:/var/lib/postgresql/data -d -p 5433:5432 \
+	--env-file .env.postgres postgres:15-alpine
 
 stopdb:
 	docker stop sso-postgres
@@ -17,7 +19,10 @@ migrate-test:
     -path=/migrations -database "postgres://sso_testuser:test@localhost:5432/sso?sslmode=disable" $(direction)
 
 runserver:
-	go run ./cmd/sso -config=./config/local.yaml
+	MODE=$(MODE) go run ./cmd/app 
+
+runserver/tests:
+	MODE=local-tests go run ./cmd/app 
 
 run:
 	make startdb

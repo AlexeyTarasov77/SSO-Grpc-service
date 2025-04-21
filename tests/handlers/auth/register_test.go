@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"context"
 	"testing"
 
 	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
@@ -9,25 +10,25 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sso.service/internal/domain/models"
+	"sso.service/internal/entity"
 	"sso.service/internal/services/auth"
-	dbModels "sso.service/internal/storage/postgres/models"
+	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
 )
 
 func TestRegister(t *testing.T) {
 	t.Parallel()
-	ctx, st := suite.New(t)
+	st := suite.New(t)
 	validEmail := gofakeit.Email()
 	validPassword := FakePassword()
 	validUsername := gofakeit.Username()
 	testCases := []struct {
-		name string
-		req  *ssov1.RegisterRequest
-		expectedErr bool
+		name                   string
+		req                    *ssov1.RegisterRequest
+		expectedErr            bool
 		expectedErrMsgContains string
-		expectedCode codes.Code
-	} {
+		expectedCode           codes.Code
+	}{
 		{
 			name: "valid",
 			req: &ssov1.RegisterRequest{
@@ -44,9 +45,9 @@ func TestRegister(t *testing.T) {
 				Password: validPassword,
 				Email:    validEmail,
 			},
-			expectedErr: true,
+			expectedErr:            true,
 			expectedErrMsgContains: "already exists",
-			expectedCode: codes.AlreadyExists,
+			expectedCode:           codes.AlreadyExists,
 		},
 		{
 			name: "invalid email",
@@ -55,9 +56,9 @@ func TestRegister(t *testing.T) {
 				Password: validPassword,
 				Email:    "invalid email",
 			},
-			expectedErr: true,
+			expectedErr:            true,
 			expectedErrMsgContains: "email",
-			expectedCode: codes.InvalidArgument,
+			expectedCode:           codes.InvalidArgument,
 		},
 		{
 			name: "short password",
@@ -66,9 +67,9 @@ func TestRegister(t *testing.T) {
 				Password: "123",
 				Email:    validEmail,
 			},
-			expectedErr: true,
+			expectedErr:            true,
 			expectedErrMsgContains: "password",
-			expectedCode: codes.InvalidArgument,
+			expectedCode:           codes.InvalidArgument,
 		},
 		{
 			name: "empty username",
@@ -77,14 +78,14 @@ func TestRegister(t *testing.T) {
 				Password: validPassword,
 				Email:    validEmail,
 			},
-			expectedErr: true,
+			expectedErr:            true,
 			expectedErrMsgContains: "username",
-			expectedCode: codes.InvalidArgument,
+			expectedCode:           codes.InvalidArgument,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			respReg, err := st.AuthClient.Register(ctx, tc.req)
+			respReg, err := st.AuthClient.Register(context.Background(), tc.req)
 			respStatus := status.Code(err)
 			t.Log("Actual code", respStatus, "Expected", tc.expectedCode, "req", tc.req)
 			assert.Equal(t, tc.expectedCode, respStatus)
@@ -99,14 +100,15 @@ func TestRegister(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotEmpty(t, respReg.GetUserId())
 			storage := st.NewTestStorage()
-			modelsObj := dbModels.New(storage.DB)
-			user, err := modelsObj.User.Get(ctx, auth.GetUserParams{Email: validEmail})
+			entityObj := models.New(storage.DB)
+			user, err := entityObj.User.Get(context.Background(), auth.GetUserOptionsDTO{Email: validEmail})
 			require.NoError(t, err)
 			assert.Equal(t, respReg.GetUserId(), int64(user.ID))
 			assert.Equal(t, validEmail, user.Email)
 			assert.Equal(t, validUsername, user.Username)
-			assert.Equal(t, models.RoleUser, user.Role)
+			assert.Equal(t, entity.RoleUser, user.Role)
 			assert.False(t, user.IsActive)
 		})
 	}
 }
+

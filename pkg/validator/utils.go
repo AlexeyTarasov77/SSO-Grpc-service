@@ -19,7 +19,7 @@ func camelToSnake(s string) string {
 	return strings.ToLower(snake)
 }
 
-func getFieldName(obj any, origFieldName string) (fieldName string) {
+func getJsonFieldName(obj any, origFieldName string) (fieldName string) {
 	t := reflect.TypeOf(obj)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -28,17 +28,16 @@ func getFieldName(obj any, origFieldName string) (fieldName string) {
 	if !found {
 		panic(fmt.Sprintf("Field %s not found in type %s", origFieldName, t.Name()))
 	}
-	if tag := field.Tag.Get("json"); tag != "" && tag != "-" {
-		jsonName := strings.Split(tag, ",")[0]
-		if jsonName != "" {
-			fieldName = jsonName
-		}
-	} else {
-		fieldName = camelToSnake(origFieldName)
+	jsonTag := field.Tag.Get("json")
+	if jsonTag == "" || jsonTag == "-" {
+		return camelToSnake(origFieldName)
 	}
-	return
+	jsonName := strings.Split(jsonTag, ",")[0]
+	if jsonName == "" {
+		panic(fmt.Sprintf("Invalid json tag used in type: %s", t.Name()))
+	}
+	return jsonName
 }
-
 
 func GetErrorMsgForField(obj any, err validator.FieldError) (errorMsg string) {
 	t := reflect.TypeOf(obj)
@@ -96,7 +95,7 @@ func Validate(obj any, rules map[string]string) string {
 	validate.RegisterStructValidationMapRules(rules, newObj)
 	if err := validate.Struct(obj); err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			fieldErrors[getFieldName(obj, e.StructField())] = GetErrorMsgForField(obj, e)
+			fieldErrors[getJsonFieldName(obj, e.StructField())] = GetErrorMsgForField(obj, e)
 		}
 	}
 	// return strings.Join(fieldErrors, ", ")

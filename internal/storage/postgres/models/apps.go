@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"sso.service/internal/domain/models"
+	"sso.service/internal/entity"
 	"sso.service/internal/services/auth"
 	"sso.service/internal/storage"
 	"sso.service/internal/storage/postgres"
@@ -17,7 +17,7 @@ type AppModel struct {
 	DB *pgxpool.Pool
 }
 
-func (a *AppModel) Create(ctx context.Context, app *models.App) (int64, error) {
+func (a *AppModel) Create(ctx context.Context, app *entity.App) (int64, error) {
 	var appID int64
 	err := a.DB.QueryRow(
 		ctx,
@@ -36,14 +36,14 @@ func (a *AppModel) Create(ctx context.Context, app *models.App) (int64, error) {
 	return appID, nil
 }
 
-func (a *AppModel) Get(ctx context.Context, params auth.GetAppParams) (*models.App, error) {
+func (a *AppModel) Get(ctx context.Context, params auth.GetAppOptionsDTO) (*entity.App, error) {
 	args := []any{params.AppID, params.AppName}
 	row, _ := a.DB.Query(
 		ctx,
 		`SELECT id, name, coalesce(description, '') AS description, secret FROM apps WHERE (id = $1 OR $1 = 0) AND (name = $2 OR $2 = '')`,
 		args...,
 	)
-	app, err := pgx.CollectOneRow(row, pgx.RowToStructByName[models.App])
+	app, err := pgx.CollectOneRow(row, pgx.RowToStructByName[entity.App])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, storage.ErrRecordNotFound

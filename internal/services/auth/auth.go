@@ -5,27 +5,26 @@ import (
 	"sso.service/internal/config"
 )
 
-
-type Auth struct {
-	log          *slog.Logger
-	usersModel usersModel
-	appsModel  appsModel
-	permissionsModel permissionsModel
-	cfg          *config.Config
+type AuthService struct {
+	log             *slog.Logger
+	usersRepo       usersRepo
+	appsRepo        appsRepo
+	permissionsRepo permissionsRepo
+	cfg             *config.Config
 }
 
 func New(
 	log *slog.Logger,
-	userModel usersModel,
-	appsModel appsModel,
-	permissionsModel permissionsModel,
+	usersRepo usersRepo,
+	appsRepo appsRepo,
+	permissionsRepo permissionsRepo,
 	cfg *config.Config,
-) *Auth {
-	return &Auth{
+) *AuthService {
+	return &AuthService{
 		log,
-		userModel,
-		appsModel,
-		permissionsModel,
+		usersRepo,
+		appsRepo,
+		permissionsRepo,
 		cfg,
 	}
 }

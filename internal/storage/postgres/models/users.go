@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"sso.service/internal/domain/models"
+	"sso.service/internal/entity"
 	"sso.service/internal/services/auth"
 	"sso.service/internal/storage"
 	"sso.service/internal/storage/postgres"
@@ -18,9 +18,9 @@ type UserModel struct {
 	DB *pgxpool.Pool
 }
 
-func (u *UserModel) Create(ctx context.Context, user *models.User) (int64, error) {
-	if (user.Role == "") {
-		user.Role = models.DefaultUserRole
+func (u *UserModel) Create(ctx context.Context, user *entity.User) (int64, error) {
+	if user.Role == "" {
+		user.Role = entity.DefaultUserRole
 	}
 	var userID int64
 	err := u.DB.QueryRow(
@@ -42,9 +42,9 @@ func (u *UserModel) Create(ctx context.Context, user *models.User) (int64, error
 	return userID, nil
 }
 
-func (u *UserModel) Update(ctx context.Context, user *models.User) (*models.User, error) {
-	var updatedUser models.User
-    err := u.DB.QueryRow(
+func (u *UserModel) Update(ctx context.Context, user *entity.User) (*entity.User, error) {
+	var updatedUser entity.User
+	err := u.DB.QueryRow(
 		ctx,
 		`UPDATE users SET username = $1, password = $2, email = $3, role = $4, is_active = $5 WHERE id = $6 RETURNING id, username, email, role, is_active, created_at, updated_at`,
 		user.Username,
@@ -63,7 +63,7 @@ func (u *UserModel) Update(ctx context.Context, user *models.User) (*models.User
 	return &updatedUser, nil
 }
 
-func (u *UserModel) Get(ctx context.Context, params auth.GetUserParams) (*models.User, error) {
+func (u *UserModel) Get(ctx context.Context, params auth.GetUserOptionsDTO) (*entity.User, error) {
 	args := []any{params.Email, params.ID}
 	query := `SELECT id, username, password, email, role, is_active, created_at, updated_at FROM users
 		WHERE (email = $1 OR $1 = '') AND (id = $2 OR $2 = 0)`
@@ -71,7 +71,7 @@ func (u *UserModel) Get(ctx context.Context, params auth.GetUserParams) (*models
 		args = append(args, *params.IsActive)
 		query += " AND is_active = $3"
 	}
-	var user models.User
+	var user entity.User
 	err := u.DB.QueryRow(
 		ctx,
 		query,
@@ -86,8 +86,8 @@ func (u *UserModel) Get(ctx context.Context, params auth.GetUserParams) (*models
 	return &user, nil
 }
 
-func (u *UserModel) GetForToken(ctx context.Context, tokenScope string, plainToken string) (*models.User, error) {
-	var user models.User
+func (u *UserModel) GetForToken(ctx context.Context, tokenScope string, plainToken string) (*entity.User, error) {
+	var user entity.User
 	tokenHash := sha256.Sum256([]byte(plainToken))
 	query := `
 		SELECT u.id, u.username, u.password, u.email, u.role, u.is_active, u.created_at, u.updated_at FROM users u
@@ -120,5 +120,5 @@ func (u *UserModel) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 		}
 		return false, err
 	}
-	return role == string(models.RoleAdmin), nil
+	return role == string(entity.RoleAdmin), nil
 }

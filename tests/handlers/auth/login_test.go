@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -11,38 +12,38 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sso.service/internal/domain/models"
-	dbModels "sso.service/internal/storage/postgres/models"
+	"sso.service/internal/entity"
+	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
 )
 
 func TestLogin(t *testing.T) {
 	t.Parallel()
-	ctx, st := suite.New(t)
-	userModel := dbModels.New(st.NewTestStorage().DB).User
-	validUser := models.User{
+	st := suite.New(t)
+	userModel := models.New(st.NewTestStorage().DB).User
+	validUser := entity.User{
 		Username: gofakeit.Username(),
-        Email:    gofakeit.Email(),
-        IsActive: true,
+		Email:    gofakeit.Email(),
+		IsActive: true,
 	}
 	validUser.Password.Set(FakePassword())
-	validUserID, err := userModel.Create(ctx, &validUser)
+	validUserID, err := userModel.Create(context.Background(), &validUser)
 	require.NoError(t, err)
-	inActiveUser := models.User{
+	inActiveUser := entity.User{
 		Username: gofakeit.Username(),
-        Email:    gofakeit.Email(),
-        IsActive: false,
+		Email:    gofakeit.Email(),
+		IsActive: false,
 	}
 	inActiveUser.Password.Set(FakePassword())
-	_, err = userModel.Create(ctx, &inActiveUser)
+	_, err = userModel.Create(context.Background(), &inActiveUser)
 	require.NoError(t, err)
 	testCases := []struct {
-		name string
-		req  *ssov1.LoginRequest
-		expectedErr bool
+		name                   string
+		req                    *ssov1.LoginRequest
+		expectedErr            bool
 		expectedErrMsgContains string
-		expectedCode codes.Code
-	} {
+		expectedCode           codes.Code
+	}{
 		{
 			name: "valid",
 			req: &ssov1.LoginRequest{
@@ -59,8 +60,8 @@ func TestLogin(t *testing.T) {
 				Password: validUser.Password.Plaintext,
 				AppId:    appID,
 			},
-			expectedErr: true,
-			expectedCode: codes.InvalidArgument,
+			expectedErr:            true,
+			expectedCode:           codes.InvalidArgument,
 			expectedErrMsgContains: "email",
 		},
 		{
@@ -70,8 +71,8 @@ func TestLogin(t *testing.T) {
 				Password: "123",
 				AppId:    appID,
 			},
-			expectedErr: true,
-			expectedCode: codes.InvalidArgument,
+			expectedErr:            true,
+			expectedCode:           codes.InvalidArgument,
 			expectedErrMsgContains: "password",
 		},
 		{
@@ -81,8 +82,8 @@ func TestLogin(t *testing.T) {
 				Password: validUser.Password.Plaintext,
 				AppId:    emptyAppID,
 			},
-			expectedErr: true,
-			expectedCode: codes.InvalidArgument,
+			expectedErr:            true,
+			expectedCode:           codes.InvalidArgument,
 			expectedErrMsgContains: "app_id",
 		},
 		{
@@ -92,8 +93,8 @@ func TestLogin(t *testing.T) {
 				Password: validUser.Password.Plaintext,
 				AppId:    appID,
 			},
-			expectedErr: true,
-			expectedCode: codes.Unauthenticated,
+			expectedErr:            true,
+			expectedCode:           codes.Unauthenticated,
 			expectedErrMsgContains: "invalid credentials",
 		},
 		{
@@ -103,8 +104,8 @@ func TestLogin(t *testing.T) {
 				Password: FakePassword(),
 				AppId:    appID,
 			},
-			expectedErr: true,
-			expectedCode: codes.Unauthenticated,
+			expectedErr:            true,
+			expectedCode:           codes.Unauthenticated,
 			expectedErrMsgContains: "invalid credentials",
 		},
 		{
@@ -114,14 +115,14 @@ func TestLogin(t *testing.T) {
 				Password: inActiveUser.Password.Plaintext,
 				AppId:    appID,
 			},
-			expectedErr: true,
-			expectedCode: codes.Unauthenticated,
+			expectedErr:            true,
+			expectedCode:           codes.Unauthenticated,
 			expectedErrMsgContains: "invalid credentials",
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			respLogin, err := st.AuthClient.Login(ctx, tc.req)
+			respLogin, err := st.AuthClient.Login(context.Background(), tc.req)
 			loginTime := time.Now()
 			t.Log("Expected status", tc.expectedCode, "got", status.Code(err), "user email", tc.req.Email, "name", tc.name)
 			assert.Equal(t, tc.expectedCode, status.Code(err))
