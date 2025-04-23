@@ -15,27 +15,11 @@ type usersRepo interface {
 }
 
 type permissionsRepo interface {
-	Create(ctx context.Context, code string) (*entity.Permission, error)
 	ExistsForUser(ctx context.Context, userID int64, code string) (bool, error)
 	Get(ctx context.Context, params dtos.GetPermissionOptionsDTO) (*entity.Permission, error)
 	AddForUserIgnoreConflict(ctx context.Context, userID int64, codes []string) ([]int, error)
 	FetchMany(ctx context.Context, options dtos.FetchManyPermissionsOptionsDTO) ([]entity.Permission, error)
 	CreateManyIgnoreConflict(ctx context.Context, codes []string) error
-}
-
-func (a *PermissionsService) CreatePermission(ctx context.Context, code string) (*entity.Permission, error) {
-	const op = "permissions.CreatePermission"
-	log := a.log.With("operation", op, "code", code)
-	perm, err := a.permissionsRepo.Create(ctx, code)
-	if err != nil {
-		if errors.Is(err, storage.ErrRecordAlreadyExists) {
-			log.Warn("Permission already exists")
-			return nil, ErrPermissionAlreadyExists
-		}
-		log.Error("Failed to create permission", "msg", err.Error())
-		return nil, err
-	}
-	return perm, nil
 }
 
 func (a *PermissionsService) CheckPermission(ctx context.Context, userID int64, permission string) (bool, error) {

@@ -18,23 +18,6 @@ type PermissionModel struct {
 	DB *pgxpool.Pool
 }
 
-func (p *PermissionModel) Create(ctx context.Context, code string) (*entity.Permission, error) {
-	row, _ := p.DB.Query(
-		ctx,
-		"INSERT INTO permissions (code) VALUES ($1) RETURNING *",
-		code,
-	)
-	permission, err := pgx.CollectOneRow(row, pgx.RowToStructByName[entity.Permission])
-	if err != nil {
-		var pgxErr *pgconn.PgError
-		if errors.As(err, &pgxErr) && pgxErr.Code == postgres.UniqueViolationErrCode {
-			return nil, storage.ErrRecordAlreadyExists
-		}
-		return nil, err
-	}
-	return &permission, nil
-}
-
 func (p *PermissionModel) AddForUserIgnoreConflict(ctx context.Context, userID int64, codes []string) ([]int, error) {
 	const query = `INSERT INTO users_permissions AS up (user_id, permission_id)
 		SELECT $1, p.id FROM permissions p WHERE p.code = ANY($2)
