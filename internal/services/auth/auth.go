@@ -6,25 +6,22 @@ import (
 )
 
 type AuthService struct {
-	log             *slog.Logger
-	usersRepo       usersRepo
-	appsRepo        appsRepo
-	permissionsRepo permissionsRepo
-	cfg             *config.Config
+	log       *slog.Logger
+	usersRepo usersRepo
+	appsRepo  appsRepo
+	cfg       *config.Config
 }
 
 func New(
 	log *slog.Logger,
 	usersRepo usersRepo,
 	appsRepo appsRepo,
-	permissionsRepo permissionsRepo,
 	cfg *config.Config,
 ) *AuthService {
 	return &AuthService{
 		log,
 		usersRepo,
 		appsRepo,
-		permissionsRepo,
 		cfg,
 	}
 }

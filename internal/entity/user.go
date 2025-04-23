@@ -64,8 +64,3 @@ func (p *password) Matches(plain string) (bool, error) {
 	}
 	return true, nil
 }
-
-type AuthTokens struct {
-	AccessToken  string
-	RefreshToken string
-}

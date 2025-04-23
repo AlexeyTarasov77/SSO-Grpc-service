@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"sso.service/internal/entity"
-	"sso.service/internal/services/auth"
+	"sso.service/internal/services/dtos"
 	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
 )
@@ -101,7 +101,7 @@ func TestRegister(t *testing.T) {
 			assert.NotEmpty(t, respReg.GetUserId())
 			storage := st.NewTestStorage()
 			entityObj := models.New(storage.DB)
-			user, err := entityObj.User.Get(context.Background(), auth.GetUserOptionsDTO{Email: validEmail})
+			user, err := entityObj.User.Get(context.Background(), dtos.GetUserOptionsDTO{Email: validEmail})
 			require.NoError(t, err)
 			assert.Equal(t, respReg.GetUserId(), int64(user.ID))
 			assert.Equal(t, validEmail, user.Email)
@@ -111,4 +111,3 @@ func TestRegister(t *testing.T) {
 		})
 	}
 }
-

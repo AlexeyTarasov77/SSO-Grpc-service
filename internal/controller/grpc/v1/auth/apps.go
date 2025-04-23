@@ -1,4 +1,4 @@
-package v1
+package auth
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"sso.service/pkg/validator"
 )
 
-func (s *authServer) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAppRequest) (*ssov1.GetOrCreateAppResponse, error) {
+func (s *AuthServer) GetOrCreateApp(ctx context.Context, req *ssov1.GetOrCreateAppRequest) (*ssov1.GetOrCreateAppResponse, error) {
 	validationRules := map[string]string{
 		"Name":        "required,max=70",
 		"Description": "required,max=300",

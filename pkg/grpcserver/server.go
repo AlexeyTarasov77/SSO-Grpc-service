@@ -21,9 +21,10 @@ type Server struct {
 
 const fullSystemHealthServing = ""
 
-func New(log *slog.Logger, host string, port string, authServer ssov1.AuthServer) *Server {
+func New(log *slog.Logger, host string, port string, authServer ssov1.AuthServer, permissionsServer ssov1.PermissionsServer) *Server {
 	gRPCServer := grpc.NewServer()
 	ssov1.RegisterAuthServer(gRPCServer, authServer)
+	ssov1.RegisterPermissionsServer(gRPCServer, permissionsServer)
 	healthcheckServer := health.NewServer()
 	healthgrpc.RegisterHealthServer(gRPCServer, healthcheckServer)
 	return &Server{log, gRPCServer, make(chan error, 1), healthcheckServer, host, port}

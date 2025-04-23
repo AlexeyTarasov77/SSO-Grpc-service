@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"sso.service/internal/entity"
-	"sso.service/internal/services/auth"
+	"sso.service/internal/services/dtos"
 	"sso.service/internal/storage"
 	"sso.service/internal/storage/postgres"
 )
@@ -36,7 +36,7 @@ func (a *AppModel) Create(ctx context.Context, app *entity.App) (int64, error) {
 	return appID, nil
 }
 
-func (a *AppModel) Get(ctx context.Context, params auth.GetAppOptionsDTO) (*entity.App, error) {
+func (a *AppModel) Get(ctx context.Context, params dtos.GetAppOptionsDTO) (*entity.App, error) {
 	args := []any{params.AppID, params.AppName}
 	row, _ := a.DB.Query(
 		ctx,

@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"sso.service/internal/entity"
-	"sso.service/internal/services/auth"
+	"sso.service/internal/services/dtos"
 	"sso.service/internal/storage"
 	"sso.service/internal/storage/postgres"
 )
@@ -63,7 +63,7 @@ func (u *UserModel) Update(ctx context.Context, user *entity.User) (*entity.User
 	return &updatedUser, nil
 }
 
-func (u *UserModel) Get(ctx context.Context, params auth.GetUserOptionsDTO) (*entity.User, error) {
+func (u *UserModel) Get(ctx context.Context, params dtos.GetUserOptionsDTO) (*entity.User, error) {
 	args := []any{params.Email, params.ID}
 	query := `SELECT id, username, password, email, role, is_active, created_at, updated_at FROM users
 		WHERE (email = $1 OR $1 = '') AND (id = $2 OR $2 = 0)`

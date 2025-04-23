@@ -3,6 +3,7 @@ module sso.service
 go 1.22.5
 
 require (
+	github.com/AlexeySHA256/protos v0.1.5
 	github.com/brianvoe/gofakeit/v7 v7.0.4
 	github.com/fatih/color v1.17.0
 	github.com/go-playground/validator/v10 v10.22.0
@@ -17,11 +18,9 @@ require (
 )
 
 require (
-	github.com/AlexeySHA256/protos v0.1.4 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
-	github.com/go-mail/mail/v2 v2.3.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -43,7 +42,6 @@ require (
 	golang.org/x/text v0.17.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
 )

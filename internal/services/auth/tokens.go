@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"sso.service/internal/services/dtos"
 	"sso.service/internal/storage"
 	jwtLib "sso.service/pkg/jwt"
 )
@@ -13,7 +14,7 @@ import (
 func (a *AuthService) RenewAccessToken(ctx context.Context, refreshToken string, appId int32) (string, error) {
 	const op = "auth.GetAccessToken"
 	log := a.log.With("operation", op)
-	app, err := a.appsRepo.Get(ctx, GetAppOptionsDTO{AppID: appId})
+	app, err := a.appsRepo.Get(ctx, dtos.GetAppOptionsDTO{AppID: appId})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("App not found", "app_id", appId)
@@ -29,7 +30,7 @@ func (a *AuthService) RenewAccessToken(ctx context.Context, refreshToken string,
 		return "", err
 	}
 	userID := int64(claims["uid"].(float64))
-	user, err := a.usersRepo.Get(ctx, GetUserOptionsDTO{ID: userID})
+	user, err := a.usersRepo.Get(ctx, dtos.GetUserOptionsDTO{ID: userID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("User not found", "user_id", userID)
@@ -45,7 +46,7 @@ func (a *AuthService) NewActivationToken(ctx context.Context, email string, appI
 	const op = "auth.NewActivationToken"
 	log := a.log.With("operation", op)
 	email = strings.Trim(email, " ")
-	user, err := a.GetUser(ctx, GetUserOptionsDTO{Email: email})
+	user, err := a.GetUser(ctx, dtos.GetUserOptionsDTO{Email: email})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("User not found", "email", email)
@@ -57,7 +58,7 @@ func (a *AuthService) NewActivationToken(ctx context.Context, email string, appI
 		log.Warn("User already active", "email", email)
 		return "", ErrUserAlreadyActivated
 	}
-	app, err := a.appsRepo.Get(ctx, GetAppOptionsDTO{AppID: appID})
+	app, err := a.appsRepo.Get(ctx, dtos.GetAppOptionsDTO{AppID: appID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("App not found", "app_id", appID)
@@ -78,7 +79,7 @@ func (a *AuthService) NewActivationToken(ctx context.Context, email string, appI
 func (a *AuthService) VerifyToken(ctx context.Context, appID int32, token string) error {
 	const op = "auth.VerifyToken"
 	log := a.log.With("operation", op)
-	app, err := a.appsRepo.Get(ctx, GetAppOptionsDTO{AppID: appID})
+	app, err := a.appsRepo.Get(ctx, dtos.GetAppOptionsDTO{AppID: appID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("App not found", "app_id", appID)

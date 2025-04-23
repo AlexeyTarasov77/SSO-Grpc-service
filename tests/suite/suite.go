@@ -16,8 +16,9 @@ import (
 
 type Suite struct {
 	*testing.T
-	Cfg        *config.Config
-	AuthClient ssov1.AuthClient
+	Cfg               *config.Config
+	AuthClient        ssov1.AuthClient
+	PermissionsClient ssov1.PermissionsClient
 }
 
 func New(t *testing.T) *Suite {
@@ -32,9 +33,10 @@ func New(t *testing.T) *Suite {
 		t.Fatal(err)
 	}
 	return &Suite{
-		T:          t,
-		Cfg:        cfg,
-		AuthClient: ssov1.NewAuthClient(conn),
+		T:                 t,
+		Cfg:               cfg,
+		AuthClient:        ssov1.NewAuthClient(conn),
+		PermissionsClient: ssov1.NewPermissionsClient(conn),
 	}
 }
 
@@ -49,4 +51,3 @@ func (self *Suite) NewTestStorage() *postgres.Storage {
 	})
 	return storage
 }
-

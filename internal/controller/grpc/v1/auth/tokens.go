@@ -1,4 +1,4 @@
-package v1
+package auth
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"sso.service/pkg/validator"
 )
 
-func (s *authServer) RenewAccessToken(ctx context.Context, req *ssov1.RenewAccessTokenRequest) (*ssov1.RenewAccessTokenResponse, error) {
+func (s *AuthServer) RenewAccessToken(ctx context.Context, req *ssov1.RenewAccessTokenRequest) (*ssov1.RenewAccessTokenResponse, error) {
 	validationRules := map[string]string{
 		"refreshToken": "required,min=10,max=64",
 		"appId":        "required,gt=0",
@@ -28,7 +28,7 @@ func (s *authServer) RenewAccessToken(ctx context.Context, req *ssov1.RenewAcces
 	}, nil
 }
 
-func (s *authServer) NewActivationToken(ctx context.Context, req *ssov1.NewActivationTokenRequest) (*ssov1.NewActivationTokenResponse, error) {
+func (s *AuthServer) NewActivationToken(ctx context.Context, req *ssov1.NewActivationTokenRequest) (*ssov1.NewActivationTokenResponse, error) {
 	validationRules := map[string]string{"email": "required,email"}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		return nil, status.Error(codes.InvalidArgument, errs)
@@ -49,7 +49,7 @@ func (s *authServer) NewActivationToken(ctx context.Context, req *ssov1.NewActiv
 	}, nil
 }
 
-func (s *authServer) VerifyToken(ctx context.Context, req *ssov1.VerifyTokenRequest) (*ssov1.VerifyTokenResponse, error) {
+func (s *AuthServer) VerifyToken(ctx context.Context, req *ssov1.VerifyTokenRequest) (*ssov1.VerifyTokenResponse, error) {
 	validationRules := map[string]string{"token": "required"}
 	if errs := validator.Validate(req, validationRules); errs != validator.EmptyErrors {
 		s.log.Debug("Validation errors at login", "errors", errs)

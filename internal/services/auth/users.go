@@ -6,18 +6,13 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"sso.service/internal/entity"
+	"sso.service/internal/services/dtos"
 	"sso.service/internal/storage"
 	jwtLib "sso.service/pkg/jwt"
 )
 
-type GetUserOptionsDTO struct {
-	Email    string
-	ID       int64
-	IsActive *bool // made pointer to support nil values
-}
-
 type usersRepo interface {
-	Get(ctx context.Context, params GetUserOptionsDTO) (*entity.User, error)
+	Get(ctx context.Context, params dtos.GetUserOptionsDTO) (*entity.User, error)
 	GetForToken(ctx context.Context, tokenScope string, plainToken string) (*entity.User, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
 	Create(ctx context.Context, user *entity.User) (int64, error)
@@ -29,12 +24,12 @@ func (a *AuthService) Login(
 	email string,
 	password string,
 	appId int32,
-) (*entity.AuthTokens, error) {
+) (*dtos.AuthTokens, error) {
 	const op = "auth.Login"
 	log := a.log.With("operation", op)
 	isActive := new(bool)
 	*isActive = true
-	user, err := a.usersRepo.Get(ctx, GetUserOptionsDTO{Email: email, IsActive: isActive})
+	user, err := a.usersRepo.Get(ctx, dtos.GetUserOptionsDTO{Email: email, IsActive: isActive})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("Active user not found", "email", email)
@@ -52,7 +47,7 @@ func (a *AuthService) Login(
 		log.Warn("Wrong password", "email", email)
 		return nil, ErrInvalidCredentials
 	}
-	app, err := a.appsRepo.Get(ctx, GetAppOptionsDTO{AppID: appId})
+	app, err := a.appsRepo.Get(ctx, dtos.GetAppOptionsDTO{AppID: appId})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("App not found", "app_id", appId)
@@ -73,16 +68,11 @@ func (a *AuthService) Login(
 		log.Error("Error creating refresh token", "msg", err.Error())
 		return nil, err
 	}
-	return &entity.AuthTokens{AccessToken: accessToken, RefreshToken: refreshToken}, nil
+	return &dtos.AuthTokens{AccessToken: accessToken, RefreshToken: refreshToken}, nil
 
 }
 
-type UserIDAndToken struct {
-	UserID int64
-	Token  string
-}
-
-func (a *AuthService) Register(ctx context.Context, username string, plainPassword string, email string, appID int32) (*UserIDAndToken, error) {
+func (a *AuthService) Register(ctx context.Context, username string, plainPassword string, email string, appID int32) (*dtos.UserIDAndToken, error) {
 	const op = "auth.Register"
 	log := a.log.With("operation", op)
 	user := entity.User{
@@ -104,7 +94,7 @@ func (a *AuthService) Register(ctx context.Context, username string, plainPasswo
 		return nil, err
 	}
 	log.Info("User saved", "id", userID)
-	app, err := a.appsRepo.Get(ctx, GetAppOptionsDTO{AppID: appID})
+	app, err := a.appsRepo.Get(ctx, dtos.GetAppOptionsDTO{AppID: appID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("App not found", "app_id", appID)
@@ -122,7 +112,7 @@ func (a *AuthService) Register(ctx context.Context, username string, plainPasswo
 		return nil, err
 	}
 	log.Info("Activation token created", "token", token)
-	return &UserIDAndToken{UserID: userID, Token: token}, nil
+	return &dtos.UserIDAndToken{UserID: userID, Token: token}, nil
 }
 
 func (a *AuthService) IsAdmin(ctx context.Context, userID int64) (bool, error) {
@@ -142,7 +132,7 @@ func (a *AuthService) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 	return isAdmin, nil
 }
 
-func (a *AuthService) GetUser(ctx context.Context, params GetUserOptionsDTO) (*entity.User, error) {
+func (a *AuthService) GetUser(ctx context.Context, params dtos.GetUserOptionsDTO) (*entity.User, error) {
 	const op = "auth.GetUserByID"
 	log := a.log.With("operation", op)
 	user, err := a.usersRepo.Get(ctx, params)
@@ -160,7 +150,7 @@ func (a *AuthService) GetUser(ctx context.Context, params GetUserOptionsDTO) (*e
 func (a *AuthService) ActivateUser(ctx context.Context, token string, appID int32) (*entity.User, error) {
 	const op = "auth.ActivateUser"
 	log := a.log.With("operation", op, "token", token, "appID", appID)
-	app, err := a.appsRepo.Get(ctx, GetAppOptionsDTO{AppID: appID})
+	app, err := a.appsRepo.Get(ctx, dtos.GetAppOptionsDTO{AppID: appID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("App not found", "app_id", appID)
@@ -191,7 +181,7 @@ func (a *AuthService) ActivateUser(ctx context.Context, token string, appID int3
 		log.Warn("app_id mismatch", "appIDFromToken", appIDFromToken)
 		return nil, ErrAppIdsMismatch
 	}
-	user, err := a.usersRepo.Get(ctx, GetUserOptionsDTO{ID: userID})
+	user, err := a.usersRepo.Get(ctx, dtos.GetUserOptionsDTO{ID: userID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			log.Warn("Invalid activation token (uid of unknown user)", "token", token)
