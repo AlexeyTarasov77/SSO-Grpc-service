@@ -5,13 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	ssov1 "sso.service/api/proto/gen/v1"
-	"sso.service/internal/entity"
 	models "sso.service/internal/storage/postgres/models"
 	"sso.service/pkg/jwt"
 	"sso.service/tests/suite"
@@ -22,30 +20,13 @@ func TestActivateUser(t *testing.T) {
 	st := suite.New(t)
 	storage := st.NewTestStorage()
 	userModel := models.New(storage.DB).User
-	validUser := entity.User{
-		Username: gofakeit.Username(),
-		Email:    gofakeit.Email(),
-		Role:     entity.RoleUser,
-		IsActive: false,
-	}
-	validUser.Password.Set(suite.FakePassword())
-	validUserID, err := userModel.Create(context.Background(), &validUser)
-	require.NoError(t, err)
-	validUser.ID = validUserID
-	activatedUser := entity.User{
-		Username: gofakeit.Username(),
-		Email:    gofakeit.Email(),
-		Role:     entity.RoleUser,
-		IsActive: true,
-	}
-	activatedUser.Password.Set(suite.FakePassword())
-	activatedUserID, err := userModel.Create(context.Background(), &activatedUser)
-	require.NoError(t, err)
-	activatedUser.ID = activatedUserID
+	inactiveUser := suite.NewTestUser(t, false)
+	suite.SaveTestUser(t, userModel, inactiveUser)
+	activatedUser := suite.CreateActiveTestUser(t, userModel)
 	tokenProvider := jwt.NewTokenProvider(suite.AppSecret, st.Cfg.TokenSigningAlg)
-	validToken, err := tokenProvider.NewToken(st.Cfg.ActivationTokenTTL, map[string]any{"uid": validUser.ID, "app_id": suite.AppID})
+	validToken, err := tokenProvider.NewToken(st.Cfg.ActivationTokenTTL, map[string]any{"uid": inactiveUser.ID, "app_id": suite.AppID})
 	require.NoError(t, err)
-	expiredToken, err := tokenProvider.NewToken(time.Millisecond, map[string]any{"uid": validUser.ID, "app_id": suite.AppID})
+	expiredToken, err := tokenProvider.NewToken(time.Millisecond, map[string]any{"uid": inactiveUser.ID, "app_id": suite.AppID})
 	require.NoError(t, err)
 	activatedUserToken, err := tokenProvider.NewToken(st.Cfg.ActivationTokenTTL, map[string]any{"uid": activatedUser.ID, "app_id": suite.AppID})
 	require.NoError(t, err)
@@ -65,10 +46,10 @@ func TestActivateUser(t *testing.T) {
 			},
 			expectedCode: codes.OK,
 			expectedUser: &ssov1.User{
-				Id:       validUser.ID,
-				Username: validUser.Username,
-				Email:    validUser.Email,
-				Role:     validUser.Role,
+				Id:       inactiveUser.ID,
+				Username: inactiveUser.Username,
+				Email:    inactiveUser.Email,
+				Role:     inactiveUser.Role,
 				IsActive: true,
 			},
 		},

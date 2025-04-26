@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	ssov1 "sso.service/api/proto/gen/v1"
-	"sso.service/internal/entity"
 	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
 )
@@ -21,15 +20,7 @@ func TestGrantPermissions(t *testing.T) {
 	storage := st.NewTestStorage()
 	models := models.New(storage.DB)
 	permCodes := []string{gofakeit.Username(), gofakeit.Username()}
-	user := entity.User{
-		Username: gofakeit.Username(),
-		Email:    gofakeit.Email(),
-		IsActive: true,
-	}
-	user.Password.Set(suite.FakePassword())
-	validUserID, err := models.User.Create(context.Background(), &user)
-	user.ID = validUserID
-	require.NoError(t, err)
+	user := suite.CreateActiveTestUser(t, models.User)
 	testCases := []struct {
 		name              string
 		req               *ssov1.GrantPermissionsRequest
@@ -67,6 +58,14 @@ func TestGrantPermissions(t *testing.T) {
 			req: &ssov1.GrantPermissionsRequest{
 				UserId:          user.ID,
 				PermissionCodes: []string{},
+			},
+			expectedCode: codes.InvalidArgument,
+		},
+		{
+			name: "invalid user id",
+			req: &ssov1.GrantPermissionsRequest{
+				UserId:          -1,
+				PermissionCodes: permCodes,
 			},
 			expectedCode: codes.InvalidArgument,
 		},

@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	ssov1 "sso.service/api/proto/gen/v1"
-	"sso.service/internal/entity"
 	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
 )
@@ -19,15 +18,7 @@ func TestGetUser(t *testing.T) {
 	st := suite.New(t)
 	storage := st.NewTestStorage()
 	userModel := models.New(storage.DB).User
-	validUser := entity.User{
-		Username: gofakeit.Username(),
-		Email:    gofakeit.Email(),
-		IsActive: true,
-	}
-	validUser.Password.Set(suite.FakePassword())
-	validUserID, err := userModel.Create(context.Background(), &validUser)
-	validUser.ID = validUserID
-	require.NoError(t, err)
+	validUser := suite.CreateActiveTestUser(t, userModel)
 	testCases := []struct {
 		name         string
 		req          *ssov1.GetUserRequest
@@ -37,7 +28,7 @@ func TestGetUser(t *testing.T) {
 		{
 			name: "valid by id",
 			req: &ssov1.GetUserRequest{
-				Id:       validUserID,
+				Id:       validUser.ID,
 				IsActive: true,
 			},
 			expectedCode: codes.OK,
@@ -83,7 +74,7 @@ func TestGetUser(t *testing.T) {
 		{
 			name: "not found by IsActive",
 			req: &ssov1.GetUserRequest{
-				Id: validUserID,
+				Id: validUser.ID,
 			},
 			expectedCode: codes.NotFound,
 		},

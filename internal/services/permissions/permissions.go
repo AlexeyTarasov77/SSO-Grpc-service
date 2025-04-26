@@ -22,9 +22,9 @@ type permissionsRepo interface {
 	CreateManyIgnoreConflict(ctx context.Context, codes []string) error
 }
 
-func (a *PermissionsService) CheckPermission(ctx context.Context, userID int64, permission string) (bool, error) {
+func (a *PermissionsService) CheckPermission(ctx context.Context, userID int64, permCode string) (bool, error) {
 	const op = "permissions.CheckPermission"
-	log := a.log.With("operation", op, "user_id", userID, "permission", permission)
+	log := a.log.With("operation", op, "user_id", userID, "permission", permCode)
 	_, err := a.usersRepo.Get(ctx, dtos.GetUserOptionsDTO{ID: userID})
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
@@ -34,16 +34,7 @@ func (a *PermissionsService) CheckPermission(ctx context.Context, userID int64, 
 		log.Error("Failed to get user", "msg", err.Error())
 		return false, err
 	}
-	_, err = a.permissionsRepo.Get(ctx, dtos.GetPermissionOptionsDTO{Code: permission})
-	if err != nil {
-		if errors.Is(err, storage.ErrRecordNotFound) {
-			log.Warn("Permission not found", "permission", permission)
-			return false, ErrPermissionNotFound
-		}
-		log.Error("Failed to get permission", "msg", err.Error())
-		return false, err
-	}
-	exists, err := a.permissionsRepo.ExistsForUser(ctx, userID, permission)
+	exists, err := a.permissionsRepo.ExistsForUser(ctx, userID, permCode)
 	if err != nil {
 		log.Error("Failed to check if permission exists", "msg", err.Error())
 		return false, err

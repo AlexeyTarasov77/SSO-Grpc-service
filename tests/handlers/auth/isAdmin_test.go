@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -20,24 +19,10 @@ func TestIsAdmin(t *testing.T) {
 	st := suite.New(t)
 	storage := st.NewTestStorage()
 	userModel := dbentity.New(storage.DB).User
-	userAdmin := entity.User{
-		Username: gofakeit.Username(),
-		Email:    gofakeit.Email(),
-		Role:     entity.RoleAdmin,
-		IsActive: true,
-	}
-	userAdmin.Password.Set(suite.FakePassword())
-	validUserID, err := userModel.Create(context.Background(), &userAdmin)
-	require.NoError(t, err)
-	userNotAdmin := entity.User{
-		Username: gofakeit.Username(),
-		Email:    gofakeit.Email(),
-		Role:     entity.RoleUser,
-		IsActive: true,
-	}
-	userNotAdmin.Password.Set(suite.FakePassword())
-	notAdminUserID, err := userModel.Create(context.Background(), &userNotAdmin)
-	require.NoError(t, err)
+	userAdmin := suite.NewTestUser(t, true)
+	userAdmin.Role = entity.RoleAdmin
+	suite.SaveTestUser(t, userModel, userAdmin)
+	defaultUser := suite.CreateActiveTestUser(t, userModel)
 	testCases := []struct {
 		name            string
 		req             *ssov1.IsAdminRequest
@@ -47,7 +32,7 @@ func TestIsAdmin(t *testing.T) {
 		{
 			name: "valid",
 			req: &ssov1.IsAdminRequest{
-				UserId: validUserID,
+				UserId: userAdmin.ID,
 			},
 			expectedCode:    codes.OK,
 			expectedIsAdmin: true,
@@ -62,7 +47,7 @@ func TestIsAdmin(t *testing.T) {
 		{
 			name: "not admin",
 			req: &ssov1.IsAdminRequest{
-				UserId: notAdminUserID,
+				UserId: defaultUser.ID,
 			},
 			expectedCode:    codes.OK,
 			expectedIsAdmin: false,

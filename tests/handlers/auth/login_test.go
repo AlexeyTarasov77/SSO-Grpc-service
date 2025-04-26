@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	ssov1 "sso.service/api/proto/gen/v1"
-	"sso.service/internal/entity"
 	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
 )
@@ -21,22 +20,9 @@ func TestLogin(t *testing.T) {
 	t.Parallel()
 	st := suite.New(t)
 	userModel := models.New(st.NewTestStorage().DB).User
-	validUser := entity.User{
-		Username: gofakeit.Username(),
-		Email:    gofakeit.Email(),
-		IsActive: true,
-	}
-	validUser.Password.Set(suite.FakePassword())
-	validUserID, err := userModel.Create(context.Background(), &validUser)
-	require.NoError(t, err)
-	inActiveUser := entity.User{
-		Username: gofakeit.Username(),
-		Email:    gofakeit.Email(),
-		IsActive: false,
-	}
-	inActiveUser.Password.Set(suite.FakePassword())
-	_, err = userModel.Create(context.Background(), &inActiveUser)
-	require.NoError(t, err)
+	activatedUser := suite.CreateActiveTestUser(t, userModel)
+	inactiveUser := suite.NewTestUser(t, false)
+	suite.SaveTestUser(t, userModel, inactiveUser)
 	testCases := []struct {
 		name                   string
 		req                    *ssov1.LoginRequest
@@ -47,8 +33,8 @@ func TestLogin(t *testing.T) {
 		{
 			name: "valid",
 			req: &ssov1.LoginRequest{
-				Email:    validUser.Email,
-				Password: validUser.Password.Plaintext,
+				Email:    activatedUser.Email,
+				Password: activatedUser.Password.Plaintext,
 				AppId:    suite.AppID,
 			},
 			expectedCode: codes.OK,
@@ -57,7 +43,7 @@ func TestLogin(t *testing.T) {
 			name: "invalid email",
 			req: &ssov1.LoginRequest{
 				Email:    "invalid",
-				Password: validUser.Password.Plaintext,
+				Password: activatedUser.Password.Plaintext,
 				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
@@ -67,7 +53,7 @@ func TestLogin(t *testing.T) {
 		{
 			name: "short password",
 			req: &ssov1.LoginRequest{
-				Email:    validUser.Email,
+				Email:    activatedUser.Email,
 				Password: "123",
 				AppId:    suite.AppID,
 			},
@@ -78,8 +64,8 @@ func TestLogin(t *testing.T) {
 		{
 			name: "invalid app-id",
 			req: &ssov1.LoginRequest{
-				Email:    validUser.Email,
-				Password: validUser.Password.Plaintext,
+				Email:    activatedUser.Email,
+				Password: activatedUser.Password.Plaintext,
 				AppId:    suite.EmptyAppID,
 			},
 			expectedErr:            true,
@@ -90,7 +76,7 @@ func TestLogin(t *testing.T) {
 			name: "Invalid credentials (unknown email)",
 			req: &ssov1.LoginRequest{
 				Email:    gofakeit.Email(),
-				Password: validUser.Password.Plaintext,
+				Password: activatedUser.Password.Plaintext,
 				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
@@ -100,7 +86,7 @@ func TestLogin(t *testing.T) {
 		{
 			name: "Invalid credentials (wrong password)",
 			req: &ssov1.LoginRequest{
-				Email:    validUser.Email,
+				Email:    activatedUser.Email,
 				Password: suite.FakePassword(),
 				AppId:    suite.AppID,
 			},
@@ -111,8 +97,8 @@ func TestLogin(t *testing.T) {
 		{
 			name: "Invalid credentials (inactive user)",
 			req: &ssov1.LoginRequest{
-				Email:    inActiveUser.Email,
-				Password: inActiveUser.Password.Plaintext,
+				Email:    inactiveUser.Email,
+				Password: inactiveUser.Password.Plaintext,
 				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
@@ -148,7 +134,7 @@ func TestLogin(t *testing.T) {
 			require.NoError(t, err)
 			claims, ok := tokenParsed.Claims.(jwt.MapClaims)
 			require.True(t, ok)
-			assert.Equal(t, validUserID, int64(claims["uid"].(float64)))
+			assert.Equal(t, activatedUser.ID, int64(claims["uid"].(float64)))
 			assert.Equal(t, suite.AppID, int(claims["app_id"].(float64)))
 			assert.InDelta(
 				t,
