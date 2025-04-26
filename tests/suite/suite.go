@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	ssov1 "sso.service/api/proto/gen/v1"
 	"sso.service/internal/config"
 	"sso.service/internal/storage/postgres"
 )

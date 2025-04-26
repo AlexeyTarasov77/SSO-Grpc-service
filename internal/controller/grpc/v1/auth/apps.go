@@ -3,9 +3,9 @@ package auth
 import (
 	"context"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	ssov1 "sso.service/api/proto/gen/v1"
 	"sso.service/internal/entity"
 	"sso.service/pkg/validator"
 )

@@ -1,15 +1,14 @@
-package auth_test
+package suite
 
 import "github.com/brianvoe/gofakeit/v7"
 
 const (
-	appID          = 1
-	emptyAppID     = 0
-	appSecret      = "test-secret"
-	notFoundUserID = int64(999999999)
+	AppID          = 1
+	EmptyAppID     = 0
+	AppSecret      = "test-secret"
+	NotFoundUserID = int64(999999999)
 )
 
 func FakePassword() string {
 	return gofakeit.Password(true, true, true, true, true, 10)
 }
-

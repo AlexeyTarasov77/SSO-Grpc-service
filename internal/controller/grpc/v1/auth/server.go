@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
+	ssov1 "sso.service/api/proto/gen/v1"
 	"sso.service/internal/entity"
 	"sso.service/internal/services/dtos"
 )

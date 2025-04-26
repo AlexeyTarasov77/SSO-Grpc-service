@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	ssov1 "sso.service/api/proto/gen/v1"
 	"sso.service/internal/entity"
 	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
@@ -26,7 +26,7 @@ func TestLogin(t *testing.T) {
 		Email:    gofakeit.Email(),
 		IsActive: true,
 	}
-	validUser.Password.Set(FakePassword())
+	validUser.Password.Set(suite.FakePassword())
 	validUserID, err := userModel.Create(context.Background(), &validUser)
 	require.NoError(t, err)
 	inActiveUser := entity.User{
@@ -34,7 +34,7 @@ func TestLogin(t *testing.T) {
 		Email:    gofakeit.Email(),
 		IsActive: false,
 	}
-	inActiveUser.Password.Set(FakePassword())
+	inActiveUser.Password.Set(suite.FakePassword())
 	_, err = userModel.Create(context.Background(), &inActiveUser)
 	require.NoError(t, err)
 	testCases := []struct {
@@ -49,7 +49,7 @@ func TestLogin(t *testing.T) {
 			req: &ssov1.LoginRequest{
 				Email:    validUser.Email,
 				Password: validUser.Password.Plaintext,
-				AppId:    appID,
+				AppId:    suite.AppID,
 			},
 			expectedCode: codes.OK,
 		},
@@ -58,7 +58,7 @@ func TestLogin(t *testing.T) {
 			req: &ssov1.LoginRequest{
 				Email:    "invalid",
 				Password: validUser.Password.Plaintext,
-				AppId:    appID,
+				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
 			expectedCode:           codes.InvalidArgument,
@@ -69,7 +69,7 @@ func TestLogin(t *testing.T) {
 			req: &ssov1.LoginRequest{
 				Email:    validUser.Email,
 				Password: "123",
-				AppId:    appID,
+				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
 			expectedCode:           codes.InvalidArgument,
@@ -80,7 +80,7 @@ func TestLogin(t *testing.T) {
 			req: &ssov1.LoginRequest{
 				Email:    validUser.Email,
 				Password: validUser.Password.Plaintext,
-				AppId:    emptyAppID,
+				AppId:    suite.EmptyAppID,
 			},
 			expectedErr:            true,
 			expectedCode:           codes.InvalidArgument,
@@ -91,7 +91,7 @@ func TestLogin(t *testing.T) {
 			req: &ssov1.LoginRequest{
 				Email:    gofakeit.Email(),
 				Password: validUser.Password.Plaintext,
-				AppId:    appID,
+				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
 			expectedCode:           codes.Unauthenticated,
@@ -101,8 +101,8 @@ func TestLogin(t *testing.T) {
 			name: "Invalid credentials (wrong password)",
 			req: &ssov1.LoginRequest{
 				Email:    validUser.Email,
-				Password: FakePassword(),
-				AppId:    appID,
+				Password: suite.FakePassword(),
+				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
 			expectedCode:           codes.Unauthenticated,
@@ -113,7 +113,7 @@ func TestLogin(t *testing.T) {
 			req: &ssov1.LoginRequest{
 				Email:    inActiveUser.Email,
 				Password: inActiveUser.Password.Plaintext,
-				AppId:    appID,
+				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
 			expectedCode:           codes.Unauthenticated,
@@ -143,13 +143,13 @@ func TestLogin(t *testing.T) {
 			deltaSeconds := 3 * time.Second
 			// verify access token
 			tokenParsed, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-				return []byte(appSecret), nil
+				return []byte(suite.AppSecret), nil
 			})
 			require.NoError(t, err)
 			claims, ok := tokenParsed.Claims.(jwt.MapClaims)
 			require.True(t, ok)
 			assert.Equal(t, validUserID, int64(claims["uid"].(float64)))
-			assert.Equal(t, appID, int(claims["app_id"].(float64)))
+			assert.Equal(t, suite.AppID, int(claims["app_id"].(float64)))
 			assert.InDelta(
 				t,
 				float64(loginTime.Add(st.Cfg.AccessTokenTTL).Unix()),
@@ -159,7 +159,7 @@ func TestLogin(t *testing.T) {
 			assert.True(t, tokenParsed.Valid)
 			// verify refresh token
 			tokenParsed, err = jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-				return []byte(appSecret), nil
+				return []byte(suite.AppSecret), nil
 			})
 			require.NoError(t, err)
 			claims, ok = tokenParsed.Claims.(jwt.MapClaims)

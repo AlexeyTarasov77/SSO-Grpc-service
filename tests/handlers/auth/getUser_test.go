@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	ssov1 "sso.service/api/proto/gen/v1"
 	"sso.service/internal/entity"
 	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
@@ -24,7 +24,7 @@ func TestGetUser(t *testing.T) {
 		Email:    gofakeit.Email(),
 		IsActive: true,
 	}
-	validUser.Password.Set(FakePassword())
+	validUser.Password.Set(suite.FakePassword())
 	validUserID, err := userModel.Create(context.Background(), &validUser)
 	validUser.ID = validUserID
 	require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestGetUser(t *testing.T) {
 		{
 			name: "not found by id",
 			req: &ssov1.GetUserRequest{
-				Id:       notFoundUserID,
+				Id:       suite.NotFoundUserID,
 				IsActive: true,
 			},
 			expectedCode: codes.NotFound,
@@ -120,4 +120,3 @@ func TestGetUser(t *testing.T) {
 		})
 	}
 }
-

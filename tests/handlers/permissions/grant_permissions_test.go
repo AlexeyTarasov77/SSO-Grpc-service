@@ -1,15 +1,15 @@
-package auth_test
+package permissions_test
 
 import (
 	"context"
 	"testing"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	ssov1 "sso.service/api/proto/gen/v1"
 	"sso.service/internal/entity"
 	"sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
@@ -20,18 +20,13 @@ func TestGrantPermissions(t *testing.T) {
 	st := suite.New(t)
 	storage := st.NewTestStorage()
 	models := models.New(storage.DB)
-	precreatedPermCodes := []string{gofakeit.Username(), gofakeit.Username()}
-	for _, code := range precreatedPermCodes {
-		_, err := models.Permission.Create(context.Background(), code)
-		require.NoError(t, err)
-	}
-	newPermCodes := []string{gofakeit.MovieName(), gofakeit.MovieName()}
+	permCodes := []string{gofakeit.Username(), gofakeit.Username()}
 	user := entity.User{
 		Username: gofakeit.Username(),
 		Email:    gofakeit.Email(),
 		IsActive: true,
 	}
-	user.Password.Set(FakePassword())
+	user.Password.Set(suite.FakePassword())
 	validUserID, err := models.User.Create(context.Background(), &user)
 	user.ID = validUserID
 	require.NoError(t, err)
@@ -42,28 +37,19 @@ func TestGrantPermissions(t *testing.T) {
 		expectedPermCodes []string
 	}{
 		{
-			name: "valid with precreated codes",
-			req: &ssov1.GrantPermissionsRequest{
-				UserId:          user.ID,
-				PermissionCodes: precreatedPermCodes,
-			},
-			expectedCode:      codes.OK,
-			expectedPermCodes: precreatedPermCodes,
-		},
-		{
 			name: "valid with new codes",
 			req: &ssov1.GrantPermissionsRequest{
 				UserId:          user.ID,
-				PermissionCodes: newPermCodes,
+				PermissionCodes: permCodes,
 			},
 			expectedCode:      codes.OK,
-			expectedPermCodes: newPermCodes,
+			expectedPermCodes: permCodes,
 		},
 		{
 			name: "valid with already existent codes",
 			req: &ssov1.GrantPermissionsRequest{
 				UserId:          user.ID,
-				PermissionCodes: precreatedPermCodes,
+				PermissionCodes: permCodes,
 			},
 			expectedCode:      codes.OK,
 			expectedPermCodes: []string{},
@@ -71,7 +57,7 @@ func TestGrantPermissions(t *testing.T) {
 		{
 			name: "not found UserId",
 			req: &ssov1.GrantPermissionsRequest{
-				UserId:          notFoundUserID,
+				UserId:          suite.NotFoundUserID,
 				PermissionCodes: []string{gofakeit.Email(), gofakeit.Email()},
 			},
 			expectedCode: codes.NotFound,

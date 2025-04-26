@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	ssov1 "sso.service/api/proto/gen/v1"
 	"sso.service/internal/entity"
 	"sso.service/internal/services/dtos"
 	"sso.service/internal/storage/postgres/models"
@@ -20,7 +20,7 @@ func TestRegister(t *testing.T) {
 	t.Parallel()
 	st := suite.New(t)
 	validEmail := gofakeit.Email()
-	validPassword := FakePassword()
+	validPassword := suite.FakePassword()
 	validUsername := gofakeit.Username()
 	testCases := []struct {
 		name                   string
@@ -35,6 +35,7 @@ func TestRegister(t *testing.T) {
 				Username: validUsername,
 				Password: validPassword,
 				Email:    validEmail,
+				AppId:    suite.AppID,
 			},
 			expectedCode: codes.OK,
 		},
@@ -44,6 +45,7 @@ func TestRegister(t *testing.T) {
 				Username: validUsername,
 				Password: validPassword,
 				Email:    validEmail,
+				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
 			expectedErrMsgContains: "already exists",
@@ -55,6 +57,7 @@ func TestRegister(t *testing.T) {
 				Username: validUsername,
 				Password: validPassword,
 				Email:    "invalid email",
+				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
 			expectedErrMsgContains: "email",
@@ -66,6 +69,7 @@ func TestRegister(t *testing.T) {
 				Username: validUsername,
 				Password: "123",
 				Email:    validEmail,
+				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
 			expectedErrMsgContains: "password",
@@ -77,9 +81,21 @@ func TestRegister(t *testing.T) {
 				Username: "",
 				Password: validPassword,
 				Email:    validEmail,
+				AppId:    suite.AppID,
 			},
 			expectedErr:            true,
 			expectedErrMsgContains: "username",
+			expectedCode:           codes.InvalidArgument,
+		},
+		{
+			name: "no app id",
+			req: &ssov1.RegisterRequest{
+				Username: validUsername,
+				Password: validPassword,
+				Email:    validEmail,
+			},
+			expectedErr:            true,
+			expectedErrMsgContains: "app_id",
 			expectedCode:           codes.InvalidArgument,
 		},
 	}

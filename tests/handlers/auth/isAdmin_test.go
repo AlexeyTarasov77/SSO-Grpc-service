@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	ssov1 "sso.service/api/proto/gen/v1"
 	"sso.service/internal/entity"
 	dbentity "sso.service/internal/storage/postgres/models"
 	"sso.service/tests/suite"
@@ -26,7 +26,7 @@ func TestIsAdmin(t *testing.T) {
 		Role:     entity.RoleAdmin,
 		IsActive: true,
 	}
-	userAdmin.Password.Set(FakePassword())
+	userAdmin.Password.Set(suite.FakePassword())
 	validUserID, err := userModel.Create(context.Background(), &userAdmin)
 	require.NoError(t, err)
 	userNotAdmin := entity.User{
@@ -35,7 +35,7 @@ func TestIsAdmin(t *testing.T) {
 		Role:     entity.RoleUser,
 		IsActive: true,
 	}
-	userNotAdmin.Password.Set(FakePassword())
+	userNotAdmin.Password.Set(suite.FakePassword())
 	notAdminUserID, err := userModel.Create(context.Background(), &userNotAdmin)
 	require.NoError(t, err)
 	testCases := []struct {
@@ -70,7 +70,7 @@ func TestIsAdmin(t *testing.T) {
 		{
 			name: "not found user",
 			req: &ssov1.IsAdminRequest{
-				UserId: notFoundUserID,
+				UserId: suite.NotFoundUserID,
 			},
 			expectedCode: codes.NotFound,
 		},
@@ -90,4 +90,3 @@ func TestIsAdmin(t *testing.T) {
 		})
 	}
 }
-

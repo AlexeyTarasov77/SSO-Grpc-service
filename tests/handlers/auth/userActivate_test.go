@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	ssov1 "sso.service/api/proto/gen/v1"
 	"sso.service/internal/entity"
 	models "sso.service/internal/storage/postgres/models"
 	"sso.service/pkg/jwt"
@@ -28,7 +28,7 @@ func TestActivateUser(t *testing.T) {
 		Role:     entity.RoleUser,
 		IsActive: false,
 	}
-	validUser.Password.Set(FakePassword())
+	validUser.Password.Set(suite.FakePassword())
 	validUserID, err := userModel.Create(context.Background(), &validUser)
 	require.NoError(t, err)
 	validUser.ID = validUserID
@@ -38,18 +38,18 @@ func TestActivateUser(t *testing.T) {
 		Role:     entity.RoleUser,
 		IsActive: true,
 	}
-	activatedUser.Password.Set(FakePassword())
+	activatedUser.Password.Set(suite.FakePassword())
 	activatedUserID, err := userModel.Create(context.Background(), &activatedUser)
 	require.NoError(t, err)
 	activatedUser.ID = activatedUserID
-	tokenProvider := jwt.NewTokenProvider(appSecret, st.Cfg.TokenSigningAlg)
-	validToken, err := tokenProvider.NewToken(st.Cfg.ActivationTokenTTL, map[string]any{"uid": validUser.ID, "app_id": appID})
+	tokenProvider := jwt.NewTokenProvider(suite.AppSecret, st.Cfg.TokenSigningAlg)
+	validToken, err := tokenProvider.NewToken(st.Cfg.ActivationTokenTTL, map[string]any{"uid": validUser.ID, "app_id": suite.AppID})
 	require.NoError(t, err)
-	expiredToken, err := tokenProvider.NewToken(time.Millisecond, map[string]any{"uid": validUser.ID, "app_id": appID})
+	expiredToken, err := tokenProvider.NewToken(time.Millisecond, map[string]any{"uid": validUser.ID, "app_id": suite.AppID})
 	require.NoError(t, err)
-	activatedUserToken, err := tokenProvider.NewToken(st.Cfg.ActivationTokenTTL, map[string]any{"uid": activatedUser.ID, "app_id": appID})
+	activatedUserToken, err := tokenProvider.NewToken(st.Cfg.ActivationTokenTTL, map[string]any{"uid": activatedUser.ID, "app_id": suite.AppID})
 	require.NoError(t, err)
-	tokenWithNotFoundUser, err := tokenProvider.NewToken(st.Cfg.ActivationTokenTTL, map[string]any{"uid": 0, "app_id": appID})
+	tokenWithNotFoundUser, err := tokenProvider.NewToken(st.Cfg.ActivationTokenTTL, map[string]any{"uid": 0, "app_id": suite.AppID})
 	require.NoError(t, err)
 	testCases := []struct {
 		name         string
@@ -61,7 +61,7 @@ func TestActivateUser(t *testing.T) {
 			name: "valid",
 			req: &ssov1.ActivateUserRequest{
 				ActivationToken: validToken,
-				AppId:           appID,
+				AppId:           suite.AppID,
 			},
 			expectedCode: codes.OK,
 			expectedUser: &ssov1.User{
@@ -76,7 +76,7 @@ func TestActivateUser(t *testing.T) {
 			name: "invalid token",
 			req: &ssov1.ActivateUserRequest{
 				ActivationToken: "invalid_token",
-				AppId:           appID,
+				AppId:           suite.AppID,
 			},
 			expectedCode: codes.InvalidArgument,
 		},
@@ -84,7 +84,7 @@ func TestActivateUser(t *testing.T) {
 			name: "expired token",
 			req: &ssov1.ActivateUserRequest{
 				ActivationToken: expiredToken,
-				AppId:           appID,
+				AppId:           suite.AppID,
 			},
 			expectedCode: codes.InvalidArgument,
 		},
@@ -100,7 +100,7 @@ func TestActivateUser(t *testing.T) {
 			name: "Already active user",
 			req: &ssov1.ActivateUserRequest{
 				ActivationToken: activatedUserToken,
-				AppId:           appID,
+				AppId:           suite.AppID,
 			},
 			expectedCode: codes.AlreadyExists,
 		},
@@ -108,7 +108,7 @@ func TestActivateUser(t *testing.T) {
 			name: "Unknown user from token",
 			req: &ssov1.ActivateUserRequest{
 				ActivationToken: tokenWithNotFoundUser,
-				AppId:           appID,
+				AppId:           suite.AppID,
 			},
 			expectedCode: codes.InvalidArgument,
 		},
@@ -137,4 +137,3 @@ func TestActivateUser(t *testing.T) {
 		})
 	}
 }
-

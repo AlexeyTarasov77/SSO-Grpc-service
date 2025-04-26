@@ -4,15 +4,15 @@ import (
 	"log/slog"
 	"net"
 
-	ssov1 "github.com/AlexeySHA256/protos/gen/go/sso"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
+	ssov1 "sso.service/api/proto/gen/v1"
 )
 
 type Server struct {
 	log           *slog.Logger
-	GRPCServer    *grpc.Server
+	server        *grpc.Server
 	ServeErr      chan error
 	healthChecker *health.Server
 	Host          string
@@ -39,7 +39,7 @@ func (self *Server) Run() {
 	}
 	self.log.Info("Starting gRPC server", "listener", listener.Addr(), "address", serverAddr)
 	self.healthChecker.SetServingStatus(fullSystemHealthServing, healthgrpc.HealthCheckResponse_SERVING)
-	if err := self.GRPCServer.Serve(listener); err != nil {
+	if err := self.server.Serve(listener); err != nil {
 		self.log.Error("Failed to serve gRPC server", "error", err)
 		self.healthChecker.SetServingStatus(fullSystemHealthServing, healthgrpc.HealthCheckResponse_NOT_SERVING)
 		self.ServeErr <- err
@@ -49,5 +49,5 @@ func (self *Server) Run() {
 func (app *Server) Stop() {
 	app.log.Info("Stopping gRPC server")
 	app.healthChecker.SetServingStatus(fullSystemHealthServing, healthgrpc.HealthCheckResponse_NOT_SERVING)
-	app.GRPCServer.GracefulStop()
+	app.server.GracefulStop()
 }
